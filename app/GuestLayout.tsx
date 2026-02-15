@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SwapRequest, UserState } from '@/shared/types';
 import { MOCK_REQUESTS } from '@/constants';
-import Navbar from '@/src/components/Navbar';
+import Navbar from '@/components/Navbar';
 
 interface Props {
   children: React.ReactNode;

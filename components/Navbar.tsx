@@ -32,7 +32,7 @@ return(
 
                 </div>
                 <span className="text-xl font-poppins-medium text-slate-900 tracking-tight">
-                  Home<span className="text-emerald-600 font-poppins-bold">Swap</span>
+                  Tenant<span className="text-emerald-600 font-poppins-bold">Swap</span>
                 </span>
               </Link>
               <div className="flex items-center gap-4">
@@ -47,7 +47,7 @@ return(
                     </button>
                   </>
                 ) : (
-                  <Link href="/login" className={ location === "/" ?  "bg-emerald-600 font-poppins-bold text-white px-5 py-2 rounded-full font-semibold  animate-bounce  hover:bg-emerald-700 transition-all shadow-sm" : "bg-emerald-600 font-poppins-bold text-white px-5 py-2 rounded-full font-semibold    hover:bg-emerald-700 transition-all shadow-sm"}>
+                  <Link href="/register" className={ location === "/" ?  "bg-emerald-600 font-poppins-bold text-white px-5 py-2 rounded-full font-semibold  animate-bounce  hover:bg-emerald-700 transition-all shadow-sm" : "bg-emerald-600 font-poppins-bold text-white px-5 py-2 rounded-full font-semibold    hover:bg-emerald-700 transition-all shadow-sm"}>
                     Get Started
                   </Link>
                 )}

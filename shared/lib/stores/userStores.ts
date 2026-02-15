@@ -1,0 +1,12 @@
+import { create } from "zustand";
+import { SwapRequest } from "../../types";
+
+interface UserStore {
+  user: SwapRequest | null;
+  setUser: (user: SwapRequest | null) => void;
+}
+
+const useUserStore = create<UserStore>((set) => ({
+  user: null,
+  setUser: (user) => set({ user }),
+}));

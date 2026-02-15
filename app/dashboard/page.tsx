@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useMemo } from 'react';
-import { SwapRequest, MatchChain } from '@/shared/types';
-import { findMatches } from '@/services/matchingEngine';
+import { SwapRequest } from '@/shared/types';
+import { findMatches } from '@/services/MatchingEngine';
 import Link from 'next/link';
 import { FilePlus, Edit2, Link2Off, ArrowRight, ArrowDown, ArrowUp, Phone, MessageSquare, ShieldCheck, FileText, Home } from 'lucide-react';
 

@@ -18,7 +18,7 @@ const Landing: React.FC = () => {
             Tenant-to-Tenant housing marketplace. Find someone who wants your current house and has what you're looking for. Complete your move with zero commissions.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-            <Link href="/login" className="bg-emerald-600 text-white px-8 py-4 rounded-xl text-lg font-bold hover:bg-emerald-700 transition-all shadow-lg hover:shadow-emerald-200">
+            <Link href="/register" className="bg-emerald-600 text-white px-8 py-4 rounded-xl text-lg font-bold hover:bg-emerald-700 transition-all shadow-lg hover:shadow-emerald-200">
               Start Swapping Now
             </Link>
             <div className="flex items-center gap-3 px-6 py-4 text-slate-500 font-medium">

@@ -123,7 +123,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister }) => {
             </div>
           </div>
 
-          <div className="flex items-start gap-3 py-2">
+          <div className="flex items-center gap-3 py-2">
             <input
               type="checkbox"
               id="terms"
@@ -131,7 +131,7 @@ const Register: React.FC<RegisterProps> = ({ onRegister }) => {
               onChange={(e) => setAgreeTerms(e.target.checked)}
               className="mt-1 w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
             />
-            <label htmlFor="terms" className="text-[10px] text-slate-500 leading-tight">
+            <label htmlFor="terms" className="text-[10px] text-slate-500 flex items-center gap-0.5 leading-tight">
               I agree to TenantSwap's <span className="text-emerald-600 font-bold underline cursor-pointer">Terms</span> and <span className="text-emerald-600 font-bold underline cursor-pointer">Privacy Policy</span>.
             </label>
           </div>

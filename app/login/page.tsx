@@ -28,7 +28,6 @@ const Login: React.FC = () => {
       if (existing) {
         setUserState({ isLoggedIn: true, currentUser: existing });
         router.push('/dashboard');
-        console.log('working')
       } else {
         // Create a temporary "empty" user for demonstration
         setUserState({ isLoggedIn: true, currentUser: null });
