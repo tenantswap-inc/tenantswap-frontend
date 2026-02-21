@@ -5,7 +5,7 @@ import { CheckCircle2, FileEdit, Link2, Handshake } from 'lucide-react';
 import Image from 'next/image';
 
 
-const Landing: React.FC = () => {
+export const Landing: React.FC = () => {
   return (
     <div className="relative overflow-hidden">
       {/* Hero */}
@@ -84,4 +84,3 @@ const Landing: React.FC = () => {
   );
 };
 
-export default Landing;

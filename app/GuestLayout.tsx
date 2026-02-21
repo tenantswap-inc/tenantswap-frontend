@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SwapRequest, UserState } from '@/shared/types';
-import { MOCK_REQUESTS } from '@/constants';
 import Navbar from '@/components/Navbar';
 
 interface Props {
@@ -16,23 +15,12 @@ const App: React.FC<Props> = ({children}) => {
     isLoggedIn: false,
     currentUser: null,
   });
-  const [db, setDb] = useState<SwapRequest[]>(MOCK_REQUESTS);
 
   const location = usePathname();
 
 
 
-    const handleRegister = (phoneNumber: string) => {
-    const newUser: SwapRequest = {
-      id: `user-${Math.random().toString(36).substr(2, 9)}`,
-      phoneNumber,
-      lookingFor: { type: '1BR Flat', location: 'Lagos', budget: 0, timeline: 'Flexible' },
-      leavingFrom: { type: 'Self-Contain', location: 'Lagos', vacancyDate: '' },
-      features: []
-    };
-    setDb(prev => [...prev, newUser]);
-    setUserState({ isLoggedIn: true, currentUser: newUser });
-  };
+
 
   const handleLogout = () => {
     setUserState({ isLoggedIn: false, currentUser: null });

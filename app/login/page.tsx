@@ -7,7 +7,7 @@ import GuestLayout from "@/app/GuestLayout"
 import { useRouter } from "next/navigation"
 import { Alert } from "@heroui/alert"
 import { z } from "zod"
-import { SwapRequest, UserState } from "@/shared/types"
+import {  UserState } from "@/shared/types"
 import { FormData  as RegisteredUser} from "@/app/register/page"
 
 
@@ -24,7 +24,6 @@ const Login: React.FC = () => {
   const router = useRouter()
 
 
-const [errors, setErrors] = useState<Record<string, string>>({})
 
   const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
@@ -45,11 +44,15 @@ const [errors, setErrors] = useState<Record<string, string>>({})
   return () => clearTimeout(timer)
 }, [alertMsg])
 
-const registeredUser: RegisteredUser = JSON.parse(localStorage.getItem("registeredUser") || "{}")
+const [registeredUser, setRegisteredUser] = useState<RegisteredUser | null>(null)
 
+useEffect(() => {
+  const raw = localStorage.getItem("registeredUser")
+  if (raw) setRegisteredUser(JSON.parse(raw))
+}, [])
   const handleLogin = (user: FormData) => {
 
-    const existing =  registeredUser.phone === user.phone
+    const existing =  registeredUser?.phone === user.phone
 
     if (existing) {
       setUserState({ isLoggedIn: true, currentUser: user })
@@ -74,12 +77,10 @@ const handleSubmit = (e: React.SubmitEvent) => {
       fieldErrors[key] = err.message
     })
 
-    setErrors(fieldErrors)
     setAlertMsg("Please correct the highlighted fields.")
     return
   }
 
-  setErrors({})
   setAlertMsg("")
 
   handleLogin(result.data)

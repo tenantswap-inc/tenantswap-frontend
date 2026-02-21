@@ -8,5 +8,5 @@ interface UnregisteredUserStore {
 
 export const useUserRegistration = create<UnregisteredUserStore>((set) => ({
   user: null,
-  setUser: (user) => set((state) => ({ user: state.user })),
+  setUser: () => set((state) => ({ user: state.user })),
 }));

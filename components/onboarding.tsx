@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from'next/navigation';
-import { ShieldCheck, PhoneCall, Info, CheckCircle2, AlertCircle } from 'lucide-react';
+import { PhoneCall, Info, CheckCircle2, AlertCircle } from 'lucide-react';
 import { SwapRequest } from '@/shared/types';
 import { Logo } from '@/components/logo';
 

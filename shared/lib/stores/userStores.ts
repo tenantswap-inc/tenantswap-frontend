@@ -6,7 +6,7 @@ interface UserStore {
   setUser: (user: SwapRequest | null) => void;
 }
 
-const useUserStore = create<UserStore>((set) => ({
+export const useUserStore = create<UserStore>((set) => ({
   user: null,
   setUser: (user) => set({ user }),
 }));

@@ -10,7 +10,7 @@ const apiClient: AxiosInstance = axios.create({
 export const Client = {
   get: async <T>(
     url: string,
-    params?: any,
+    params?: object,
     headers?: RawAxiosRequestHeaders
   ): Promise<T> => {
     const response = await apiClient.get<T>(url, { params, headers });
@@ -19,7 +19,7 @@ export const Client = {
 
   post: async <T>(
     url: string,
-    data: any,
+    data: object,
     headers?: RawAxiosRequestHeaders
   ): Promise<T> => {
     const response = await apiClient.post<T>(url, data, { headers });
@@ -28,7 +28,7 @@ export const Client = {
 
   patch: async <T>(
     url: string,
-    data: any,
+    data: object,
     headers?: RawAxiosRequestHeaders
   ): Promise<T> => {
     const response = await apiClient.patch<T>(url, data, { headers });
@@ -46,7 +46,7 @@ export const Client = {
 
   delete: async <T>(
     url: string,
-    data?: any,
+    data?: object,
     headers?: RawAxiosRequestHeaders
   ): Promise<T> => {
     const response = await apiClient.delete<T>(url, { data, headers });

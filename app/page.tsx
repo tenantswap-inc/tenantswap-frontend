@@ -1,5 +1,5 @@
 import GuestLayout from '@/app/GuestLayout';
-import Landing from '@/components/Landing';
+import {Landing} from '@/components/Landing';
 import React from 'react';
 
 const Home: React.FC = () => {
