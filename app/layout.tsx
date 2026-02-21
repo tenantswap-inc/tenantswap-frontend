@@ -1,5 +1,14 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Poppins } from 'next/font/google';
+
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['100', '900'], // Specify the weights you need
+  variable: '--font-poppins', // Use a CSS variable for Tailwind or global CSS
+});
+
 
 const url = process.env.API_URL as string;
 
@@ -29,7 +38,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="font-poppins-regular antialiased">
+      <body className={`${poppins.variable} antialiased`}>
         {children}
       </body>
     </html>
