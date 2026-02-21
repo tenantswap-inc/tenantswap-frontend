@@ -22,8 +22,12 @@ export const FEATURES = [
   "Gates",
   "Wardrobe",
   "Cupboards",
-  "Landlord on site",
+  "Landlord off site",
   "Tiles",
+  "Garden",
+  "Water Heater",
+  "Furnished"
+
 ];
 
 // Mock data to demonstrate chains:

@@ -1,56 +1,35 @@
 import type { Metadata } from "next";
-// import { Poppins } from "next/font/google";
 import "./globals.css";
-import Head from "next/head";
 
-// const poppins = Poppins({
-//   weight:"900",
-//   style:"normal",
-//   subsets:["latin","devanagari"]
-
-// })
-
+const url = process.env.API_URL as string;
 
 export const metadata: Metadata = {
-  // title: "TenantSwap Nigeria - Zero Agent Fees",
   description: "Zero Agent Fees for Nigerian Tenants",
-    metadataBase: new URL('https://tenantswap.com'),
-  title: { default: 'TenantSwap Nigeria - Zero Agent Fees', template: '%s | My Site' },
+  title: { default: "TenantSwap Nigeria - Zero Agent Fees", template: "%s | My Site" },
   alternates: {
-    canonical: 'https://tenantswap.com',
+    canonical: `${url}`,
     languages: {
-      'en-US': 'https://tenantswap.com/en-US',
-      'de-DE': 'https://tenantswap.com/de-DE'
-    }
+      "en-US": `${url}/en-US`,
+      "de-DE": `${url}/de-DE`,
+    },
   },
-//   icons:{
-//  icon: [
-//       {  }, // Public folder
-//     ],
-//   },
   openGraph: {
-    title: 'Tenant Swap',
-    description: 'Zero Agent Fees for Nigerian Tenants',
-    url: 'https://tenantswap.com',
-    siteName: 'Tenant Swap',
-    images: [{ url: 'https://tenantswap.com/' }]
+    title: "Tenant Swap",
+    description: "Zero Agent Fees for Nigerian Tenants",
+    url: `${url}`,
+    siteName: "Tenant Swap",
+    images: [{ url: `${url}` }],
+  },
+    icons: { icon: "/ABSG-Coat-of-Arms_Master.png" },
 
-}
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <Head>
-        <link rel="icon" href="/ABSG-Coat-of-Arms_Master.png" />
-      </Head>
-      <body
-        // className={`${poppins.className} antialiased`}
-      >
+      <body className="font-poppins-regular antialiased">
         {children}
       </body>
     </html>

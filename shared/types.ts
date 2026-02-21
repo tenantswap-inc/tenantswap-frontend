@@ -14,6 +14,9 @@ export interface SwapRequest {
   lookingFor: PropertyDetails & { budget: number; timeline: Timeline };
   leavingFrom: PropertyDetails & { vacancyDate: string };
   features: string[];
+  canConnectLandlord: boolean,
+  hasLandlordContact: boolean,
+  onboardingComplete: boolean,
 }
 
 export interface MatchChain {
@@ -22,7 +25,19 @@ export interface MatchChain {
   isDirect: boolean; // true if 2-way, false if 3+ way
 }
 
+export interface User {
+  phone: string;
+  email?: string;
+  password: string
+}
+
 export interface UserState {
   isLoggedIn: boolean;
-  currentUser: SwapRequest | null;
+  currentUser: User | null;
+}
+
+export interface UnregisteredUser{
+  name: string;
+  phone: string;
+  email: string;
 }

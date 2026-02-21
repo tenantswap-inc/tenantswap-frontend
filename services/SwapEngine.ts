@@ -1,1 +1,1 @@
-import { client } from "@/shared/utils/apiClient";
+import { Client } from "@/shared/utils/ApiClient";

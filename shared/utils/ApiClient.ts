@@ -1,13 +1,13 @@
 import axios, { AxiosInstance, RawAxiosRequestHeaders } from "axios";
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: process.env.API_URL,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-export const client = {
+export const Client = {
   get: async <T>(
     url: string,
     params?: any,
