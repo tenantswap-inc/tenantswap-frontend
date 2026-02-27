@@ -3,16 +3,15 @@
 import React, { useState } from 'react';
 import { useRouter } from'next/navigation';
 import { PhoneCall, Info, CheckCircle2, AlertCircle } from 'lucide-react';
-import { SwapRequest } from '@/shared/types';
 import { Logo } from '@/components/logo';
+import type { RegisteredUser } from '@/app/register/page';
 
 interface OnboardingProps {
-  currentUser: SwapRequest | null;
-  onComplete: (updatedUser: SwapRequest) => void;
+  currentUser: RegisteredUser | null;
+  onComplete: (updatedUser: RegisteredUser) => void;
 }
 
 const Onboarding: React.FC<OnboardingProps> = ({ currentUser, onComplete }) => {
-  const navigate = useRouter();
   const [canConnect, setCanConnect] = useState<boolean | null>(null);
   const [hasContact, setHasContact] = useState<boolean | null>(null);
   const [error, setError] = useState('');
@@ -25,7 +24,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ currentUser, onComplete }) => {
 
     if (!currentUser) return;
 
-    const updatedUser: SwapRequest = {
+    const updatedUser: RegisteredUser = {
       ...currentUser,
       canConnectLandlord: canConnect,
       hasLandlordContact: hasContact,
@@ -33,7 +32,6 @@ const Onboarding: React.FC<OnboardingProps> = ({ currentUser, onComplete }) => {
     };
 
     onComplete(updatedUser);
-    navigate.push('/engine');
   };
 
   return (

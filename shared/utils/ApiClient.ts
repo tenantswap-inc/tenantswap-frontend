@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, RawAxiosRequestHeaders } from "axios";
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: process.env.API_URL,
+  baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -22,6 +22,8 @@ export const Client = {
     data: object,
     headers?: RawAxiosRequestHeaders
   ): Promise<T> => {
+
+    console.log(process.env.API_URL)
     const response = await apiClient.post<T>(url, data, { headers });
     return response.data;
   },

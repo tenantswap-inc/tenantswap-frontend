@@ -8,8 +8,8 @@ import { z } from "zod"
 import { Alert } from "@heroui/alert"
 import { X } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { SwapRequest } from "@/shared/types"
 import Onboarding from "@/components/onboarding" // adjust path as needed
+import { Client } from "@/shared/utils/ApiClient"
 
 /* =========================
    ZOD SCHEMA
@@ -28,7 +28,9 @@ const schema = z
       .or(z.literal("")),
     password: z.string().min(6, "Password must be at least 6 characters"),
     confirmPassword: z.string(),
-     agreeTerms: z.boolean("You must agree to the Terms and Conditions to continue"),
+    agreeTerms: z.boolean().refine((val) => val === true, {
+      message: "You must agree to the Terms and Conditions to continue",
+    })
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -38,9 +40,7 @@ const schema = z
 export type FormData = z.infer<typeof schema>
 
 // Shape we persist to localStorage after registration
-type RegisteredUser = FormData & {
-  id: string
-  phoneNumber: string
+export type RegisteredUser = FormData & {
   canConnectLandlord: boolean
   hasLandlordContact: boolean
   onboardingComplete: boolean
@@ -50,7 +50,6 @@ type RegisteredUser = FormData & {
    HELPERS
 ========================= */
 
-const randomId = () => `user-${Math.random().toString(36).substr(2, 9)}`
 
 /* =========================
    COMPONENT
@@ -63,7 +62,7 @@ const Register: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState(false)
 
   // The registered user we'll hand off to Onboarding
-  const [registeredUser, setRegisteredUser] = useState<SwapRequest | null>(null)
+  const [registeredUser, setRegisteredUser] = useState<RegisteredUser | null>(null)
 
   const [form, setForm] = useState<FormData>({
     fullName: "",
@@ -109,49 +108,50 @@ const Register: React.FC = () => {
     // Build the initial user record (onboarding fields default to false)
     const newUser: RegisteredUser = {
       ...result.data,
-      id: randomId(),
-      phoneNumber: result.data.phone,
       canConnectLandlord: false,
       hasLandlordContact: false,
       onboardingComplete: false,
     }
 
-    // Persist to localStorage so downstream pages can read it
-    localStorage.setItem("registeredUser", JSON.stringify(newUser))
-    localStorage.setItem("authenticatedUser", JSON.stringify(newUser))
-
     // Hand off to Onboarding instead of navigating away
-    setRegisteredUser(newUser as unknown as SwapRequest)
+    setRegisteredUser(newUser)
     setShowOnboarding(true)
+
+
+
+
   }
 
   // Called by <Onboarding> when the user answers both questions
-  const handleOnboardingComplete = (updatedUser: SwapRequest) => {
-    // Merge onboarding answers back into the full user record
-    const existing = JSON.parse(
-      localStorage.getItem("authenticatedUser") || "{}"
-    ) as RegisteredUser
+const handleOnboardingComplete = async (updatedUser: RegisteredUser) => {
+    try {
+      console.log(updatedUser)
 
-    const merged: RegisteredUser = {
-      ...existing,
-      canConnectLandlord: updatedUser.canConnectLandlord,
-      hasLandlordContact: updatedUser.hasLandlordContact,
-      onboardingComplete: updatedUser.onboardingComplete,
+      const client = await Client.post("/auth/login", {
+        email: updatedUser.email,
+        password: updatedUser.password,
+        fullName: updatedUser.fullName,
+        phone: updatedUser.phone,
+      }, {
+        "Content-Type": "application/json",
+      })
+
+      console.log(client)
+      // Onboarding itself calls router.push('/engine'), but we also
+      // handle it here as a fallback in case that changes.
+      // router.push("/engine")
+    } catch (error) {
+      console.error("Registration failed:", error)
+      setAlertMsg("Registration failed. Please try again.")
     }
-
-    localStorage.setItem("authenticatedUser", JSON.stringify(merged))
-    localStorage.setItem("registeredUser", JSON.stringify(merged))
-
-    // Onboarding itself calls navigate.push('/engine'), but we also
-    // handle it here as a fallback in case that changes.
-    router.push("/engine")
   }
 
+
+
   const inputClass = (field: keyof FormData) =>
-    `w-full pl-12 pr-4 py-3.5 rounded-2xl border outline-none transition-all ${
-      errors[field]
-        ? "border-red-500 focus:ring-red-500/20"
-        : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/10"
+    `w-full pl-12 pr-4 py-3.5 rounded-2xl border outline-none transition-all ${errors[field]
+      ? "border-red-500 focus:ring-red-500/20"
+      : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/10"
     }`
 
   // ── Render onboarding step after successful registration ──────────────────
