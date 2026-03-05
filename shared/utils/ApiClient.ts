@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, RawAxiosRequestHeaders } from "axios";
+import axios, { AxiosInstance, AxiosResponse } from "axios";
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -8,50 +8,40 @@ const apiClient: AxiosInstance = axios.create({
 });
 
 export const Client = {
-  get: async <T>(
+  get: async <T = any>(
     url: string,
     params?: object,
-    headers?: RawAxiosRequestHeaders
-  ): Promise<T> => {
-    const response = await apiClient.get<T>(url, { params, headers });
-    return response.data;
+    headers?: Record<string, string>
+  ): Promise<AxiosResponse<T>> => {
+    return await apiClient.get<T>(url, { params, headers });
   },
-
-  post: async <T>(
+  post: async <T = any>(
     url: string,
     data: object,
-    headers?: RawAxiosRequestHeaders
-  ): Promise<T> => {
-
-    console.log(process.env.API_URL)
-    const response = await apiClient.post<T>(url, data, { headers });
-    return response.data;
+    headers?: Record<string, string>
+  ): Promise<AxiosResponse<T>> => {
+    return await apiClient.post<T>(url, data, { headers });
   },
-
-  patch: async <T>(
+  patch: async <T = any>(
     url: string,
     data: object,
-    headers?: RawAxiosRequestHeaders
-  ): Promise<T> => {
-    const response = await apiClient.patch<T>(url, data, { headers });
-    return response.data;
+    headers?: Record<string, string>
+  ): Promise<AxiosResponse<T>> => {
+    return await apiClient.patch<T>(url, data, { headers });
   },
-
-  put: async <T>(
+  put: async <T = any>(
     url: string,
-    data: any,
-    headers?: RawAxiosRequestHeaders
-  ): Promise<T> => {
-    const response = await apiClient.put<T>(url, data, { headers });
-    return response.data;
+    data: object,
+    headers?: Record<string, string>
+  ): Promise<AxiosResponse<T>> => {
+    return await apiClient.put<T>(url, data, { headers });
   },
-
-  delete: async <T>(
+  delete: async <T = any>(
     url: string,
     data?: object,
-    headers?: RawAxiosRequestHeaders
-  ): Promise<T> => {
-    const response = await apiClient.delete<T>(url, { data, headers });
-    return response.data;
+    headers?: Record<string, string>
+  ): Promise<AxiosResponse<T>> => {
+    return await apiClient.delete<T>(url, { data, headers });
   },
 };
+

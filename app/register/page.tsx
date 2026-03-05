@@ -124,26 +124,24 @@ const Register: React.FC = () => {
 
   // Called by <Onboarding> when the user answers both questions
 const handleOnboardingComplete = async (updatedUser: RegisteredUser) => {
-    try {
-      console.log(updatedUser)
+      // console.log(updatedUser)
 
-      const client = await Client.post("/auth/login", {
+      const client =   Client.post("/auth/register", {
         email: updatedUser.email,
         password: updatedUser.password,
         fullName: updatedUser.fullName,
         phone: updatedUser.phone,
-      }, {
-        "Content-Type": "application/json",
       })
 
       console.log(client)
+
       // Onboarding itself calls router.push('/engine'), but we also
       // handle it here as a fallback in case that changes.
       // router.push("/engine")
-    } catch (error) {
-      console.error("Registration failed:", error)
-      setAlertMsg("Registration failed. Please try again.")
-    }
+    // } catch (error) {
+    //   console.error("Registration failed:", error)
+    //   setAlertMsg("Registration failed. Please try again.")
+    // }
   }
 
 
