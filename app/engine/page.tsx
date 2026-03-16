@@ -1,190 +1,235 @@
 "use client"
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PropertyType, Location, Timeline, SwapRequest } from '@/shared/types';
 import { PROPERTY_TYPES, LOCATIONS, TIMELINES, FEATURES } from '@/constants';
 import GuestLayout from '@/app/GuestLayout';
-import { FormData } from '@/app/register/page';
-import { CheckSquare, Square, X, ChevronRight, ChevronLeft } from 'lucide-react';
+import { CheckSquare, Square, X, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
 import { Alert } from '@heroui/alert';
 import { z } from 'zod';
 import StepHeader from '@/components/Stepper';
 import { BinocularsIcon, DoorOpenIcon } from 'lucide-react';
+import { Client } from '@/shared/utils/ApiClient';
+import { useToken, unsetToken } from '@/shared/hooks/useToken';
 
-type AuthenticatedUser = FormData & SwapRequest;
+// ─── types ────────────────────────────────────────────────────────────────────
+
+type PropertyType = typeof PROPERTY_TYPES[number]
+type Location = typeof LOCATIONS[number]
+type Timeline = typeof TIMELINES[number]
 
 // ─── schemas ──────────────────────────────────────────────────────────────────
 
 const step1Schema = z.object({
-  lookingType: z.enum(PROPERTY_TYPES, 'Select a property type'),
-  lookingLoc:  z.enum(LOCATIONS,       'Select a location' ),
-  budget: z
+  desiredType: z.enum(PROPERTY_TYPES as [string, ...string[]], 'Select a property type'),
+  desiredCity: z.enum(LOCATIONS as [string, ...string[]], 'Select a location'),
+  maxBudget: z
     .number('Budget must be a number')
     .positive('Budget must be greater than ₦0')
     .max(100_000_000, 'Budget seems too high — please double check'),
-  timeline: z.enum(TIMELINES, 'Select a timeline'),
+  timeline: z.enum(TIMELINES as [string, ...string[]], 'Select a timeline'),
 });
 
 const step2Schema = z.object({
-  leavingType:  z.enum(PROPERTY_TYPES, 'Select a property type' ),
-  leavingLoc:   z.enum(LOCATIONS,       'Select a location' ),
-  // FIX 1: key name is consistently 'availiablity' to match schema field + Err/fc calls
-  availiablity: z.boolean( 'Please indicate if the apartment is available' ),
-  vacancyDate: z.string().optional(),
+  currentType: z.enum(PROPERTY_TYPES as [string, ...string[]], 'Select a property type'),
+  currentCity: z.enum(LOCATIONS as [string, ...string[]], 'Select a location'),
+  currentAvailable: z.boolean('Please indicate if the apartment is available'),
+  currentRent: z.number('Rent must be a number').positive('Rent must be greater than ₦0'),
+  currentAvailableOn: z.string().optional(),
   features: z.array(z.string()).min(1, 'Please select at least one home feature'),
-}).refine(
-  data => {
-    // vacancyDate is only required when apartment is available
-    if (data.availiablity === true) return !!data.vacancyDate && data.vacancyDate.length > 0;
-    return true;
-  },
-  { message: 'Please select an availability date', path: ['vacancyDate'] }
-).refine(
-  data => {
-    if (data.availiablity === true && data.vacancyDate) {
-      return new Date(data.vacancyDate) >= new Date(new Date().toDateString());
-    }
-    return true;
-  },
-  { message: 'Availability date cannot be in the past', path: ['vacancyDate'] }
-);
+})
+  .refine(
+    data => {
+      if (data.currentAvailable === true) {
+        return !!data.currentAvailableOn && data.currentAvailableOn.length > 0
+      }
+      return true
+    },
+    { message: 'Please select an availability date', path: ['currentAvailableOn'] }
+  )
+  .refine(
+    data => {
+      if (data.currentAvailable === true && data.currentAvailableOn) {
+        return new Date(data.currentAvailableOn) >= new Date(new Date().toDateString())
+      }
+      return true
+    },
+    { message: 'Availability date cannot be in the past', path: ['currentAvailableOn'] }
+  )
 
-type Step1Values = z.infer<typeof step1Schema>;
-type Step2Values = z.infer<typeof step2Schema>;
-type AllErrors = Partial<Record<keyof Step1Values | keyof Step2Values, string>>;
+type Step1Values = z.infer<typeof step1Schema>
+type Step2Values = z.infer<typeof step2Schema>
+type AllErrors = Partial<Record<keyof Step1Values | keyof Step2Values, string>>
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// ─── component ────────────────────────────────────────────────────────────────
 
-const randomId = () => `user-${Math.random().toString(36).substr(2, 9)}`;
-
-// ─── component ───────────────────────────────────────────────────────────────
-
-const SwapForm: React.FC = () => {
-  const router = useRouter();
-  const [authUser, setAuthUser] = useState<AuthenticatedUser | null>(null);
-
-  useEffect(() => {
-    const raw = localStorage.getItem('authenticatedUser');
-    if (raw) {
-      try { setAuthUser(JSON.parse(raw)); }
-      catch { console.error('Failed to parse authenticatedUser'); }
-    }
-  }, []);
-
-  // FIX 2: start at step 0, not 1 — step 1 was skipping "Looking For" entirely
-  const [step, setStep] = useState(0);
+const Engine: React.FC = () => {
+  const router = useRouter()
+   const token = useToken()
 
   // ── Step 1 fields ──────────────────────────────────────────────────────────
-  const [lookingType, setLookingType] = useState<PropertyType>('No Option');
-  const [lookingLoc,  setLookingLoc]  = useState<Location>('No Option');
-  const [budget,      setBudget]      = useState<number>(0);
-  // FIX 4: initial display value should be empty string, not 'No Option'
-  const [budgetDisplay, setBudgetDisplay] = useState('');
-  const [timeline, setTimeline] = useState<Timeline>('No Option');
+  const [desiredType, setDesiredType] = useState<PropertyType>('No Option')
+  const [desiredCity, setDesiredCity] = useState<Location>('No Option')
+  const [maxBudget, setMaxBudget] = useState<number>(0)
+  const [budgetDisplay, setBudgetDisplay] = useState('')
+  const [timeline, setTimeline] = useState<Timeline>('No Option')
 
   // ── Step 2 fields ──────────────────────────────────────────────────────────
-  const [leavingType,      setLeavingType]      = useState<PropertyType>('No Option');
-  const [leavingLoc,       setLeavingLoc]       = useState<Location>('No Option');
-  const [vacancyDate,      setVacancyDate]      = useState('');
-  const [isAvailable,      setIsAvailable]      = useState<boolean | null>(null);
-  const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
+  const [currentType, setCurrentType] = useState<PropertyType>('No Option')
+  const [currentCity, setCurrentCity] = useState<Location>('No Option')
+  const [currentAvailable, setCurrentAvailable] = useState<boolean | null>(null)
+  const [currentAvailableOn, setCurrentAvailableOn] = useState('')
+  const [currentRent, setCurrentRent] = useState<number | null>(null)
+  const [currentRentDisplay, setCurrentRentDisplay] = useState('')
+  const [selectedFeatures, setSelectedFeatures] = useState<string[]>([])
 
-  // ── Validation ─────────────────────────────────────────────────────────────
-  const [errors,   setErrors]   = useState<AllErrors>({});
-  const [alertMsg, setAlertMsg] = useState('');
+  // ── UI state ───────────────────────────────────────────────────────────────
+  const [step, setStep] = useState(0)
+  const [errors, setErrors] = useState<AllErrors>({})
+  const [alertMsg, setAlertMsg] = useState('')
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!alertMsg) return;
-    const t = setTimeout(() => setAlertMsg(''), 4000);
-    return () => clearTimeout(t);
-  }, [alertMsg]);
+    if (!alertMsg) return
+    const t = setTimeout(() => setAlertMsg(''), 4000)
+    return () => clearTimeout(t)
+  }, [alertMsg])
 
   const toggleFeature = (f: string) =>
     setSelectedFeatures(prev =>
       prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
-    );
+    )
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
   const goNext = () => {
     if (step === 0) {
-      const result = step1Schema.safeParse({ lookingType, lookingLoc, budget, timeline });
+      const result = step1Schema.safeParse({ desiredType, desiredCity, maxBudget, timeline })
       if (!result.success) {
-        const errs: AllErrors = {};
-        result.error.issues.forEach(i => { errs[i.path[0] as keyof AllErrors] = i.message; });
-        setErrors(errs);
-        setAlertMsg('Please fix the highlighted fields before continuing.');
-        return;
+        const errs: AllErrors = {}
+        result.error.issues.forEach(i => { errs[i.path[0] as keyof AllErrors] = i.message })
+        setErrors(errs)
+        setAlertMsg('Please fix the highlighted fields before continuing.')
+        return
       }
-      setErrors({});
-      setAlertMsg('');
-      setStep(1);
+      setErrors({})
+      setAlertMsg('')
+      setStep(1)
 
     } else if (step === 1) {
-      // FIX 1: key matches schema — 'availiablity', not 'availablility'
       const result = step2Schema.safeParse({
-        leavingType,
-        leavingLoc,
-        availiablity: isAvailable,
-        vacancyDate: vacancyDate || undefined,
+        currentType,
+        currentCity,
+        currentAvailable,
+        currentRent,
+        currentAvailableOn: currentAvailableOn || undefined,
         features: selectedFeatures,
-      });
+      })
       if (!result.success) {
-        const errs: AllErrors = {};
-        result.error.issues.forEach(i => { errs[i.path[0] as keyof AllErrors] = i.message; });
-        setErrors(errs);
-        setAlertMsg('Please fix the highlighted fields before continuing.');
-        return;
+        const errs: AllErrors = {}
+        result.error.issues.forEach(i => { errs[i.path[0] as keyof AllErrors] = i.message })
+        setErrors(errs)
+        setAlertMsg('Please fix the highlighted fields before continuing.')
+        return
       }
-      setErrors({});
-      setAlertMsg('');
-      setStep(2);
+      setErrors({})
+      setAlertMsg('')
+      setStep(2)
     }
-  };
+  }
 
   const goBack = () => {
-    setErrors({});
-    setAlertMsg('');
-    setStep(s => s - 1);
-  };
+    setErrors({})
+    setAlertMsg('')
+    setStep(s => s - 1)
+  }
 
-  const handleSubmit = () => {
-    const updatedUser: AuthenticatedUser = {
-      id:              authUser?.id              ?? randomId(),
-      fullName:        authUser?.fullName        ?? '',
-      phone:           authUser?.phone           ?? '',
-      password:        authUser?.password        ?? '',
-      confirmPassword: authUser?.confirmPassword ?? '',
-      agreeTerms:      authUser?.agreeTerms      ?? false,
-      email:           authUser?.email,
-      phoneNumber:     authUser?.phoneNumber     ?? '08000000000',
-      lookingFor:  { type: lookingType,  location: lookingLoc,  budget, timeline },
-      leavingFrom: { type: leavingType, location: leavingLoc, vacancyDate },
+  // ── Submit ─────────────────────────────────────────────────────────────────
+
+  const handleSubmit = async () => {
+    if (!token) {
+      router.push('/login')
+      return
+    }
+
+    const payload = {
+      desiredType,
+      desiredCity,
+      maxBudget,
+      timeline,
+      currentRent,
+      currentType,
+      currentCity,
+      currentAvailable,
+      currentAvailableOn: currentAvailable ? new Date(currentAvailableOn).toISOString() : null,
       features: selectedFeatures,
-      canConnectLandlord: authUser?.canConnectLandlord ?? false,
-      hasLandlordContact: authUser?.hasLandlordContact ?? false,
-      onboardingComplete: authUser?.onboardingComplete ?? false,
-    };
+    }
 
-    localStorage.setItem('authenticatedUser', JSON.stringify(updatedUser));
-    localStorage.setItem('userRequest',       JSON.stringify(updatedUser));
-    setAuthUser(updatedUser);
-    router.push('/dashboard');
-  };
+    setLoading(true)
+
+    console.log(payload)
+    // return;
+
+    try {
+      const response = await Client.post('/listings', payload, {
+        Authorization: `Bearer ${token}`,
+      })
+
+      console.log(response.data)
+
+      if (response.status === 200 || response.status === 201) {
+        router.push('/dashboard')
+        return
+      }
+
+      if (response.status === 401) {
+
+      unsetToken()
+
+          router.push('/login')
+          return
+
+
+      }
+
+      if (response.status === 403) {
+        setAlertMsg('You do not have permission to create a listing.')
+        return
+      }
+
+      if (response.status === 422) {
+        setAlertMsg('Some fields are invalid. Please review your details.')
+        return
+      }
+
+      if (response.status === 429) {
+        setAlertMsg('Too many requests. Please wait a moment and try again.')
+        return
+      }
+
+      setAlertMsg('Something went wrong. Please try again.')
+
+    } catch (e) {
+      console.error('Listing submit error:', e)
+      setAlertMsg('Unable to reach the server. Please check your connection.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // ── Field helpers ──────────────────────────────────────────────────────────
 
   const fc = (key: keyof AllErrors) =>
-    `w-full p-4 rounded-xl border outline-none transition-all appearance-none bg-no-repeat bg-[right_1rem_center] ${
-      errors[key] ? 'border-red-400 focus:border-red-500' : 'border-slate-200 focus:border-emerald-500'
-    }`;
+    `w-full p-4 rounded-xl border outline-none transition-all appearance-none bg-no-repeat bg-[right_1rem_center] ${errors[key]
+      ? 'border-red-400 focus:border-red-500'
+      : 'border-slate-200 focus:border-emerald-500'
+    }`
 
   const Err = ({ field }: { field: keyof AllErrors }) =>
     errors[field]
       ? <p className="text-red-500 text-xs mt-1 font-poppins-medium">{errors[field]}</p>
-      : null;
+      : null
 
-  // ─── render ──────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <GuestLayout>
@@ -193,7 +238,7 @@ const SwapForm: React.FC = () => {
           <Alert
             color="danger"
             variant="solid"
-            isVisible={true}
+            isVisible
             onClose={() => setAlertMsg('')}
             classNames={{
               base: 'shadow-2xl rounded-2xl border border-red-500/20 bg-red-500 animate-in fade-in slide-in-from-top-2 duration-300',
@@ -217,36 +262,36 @@ const SwapForm: React.FC = () => {
 
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 min-h-[420px] flex flex-col">
 
-          {/* ── Step 1: Looking For ───────────────────────────────────── */}
+          {/* ── Step 1: Looking For ─────────────────────────────────────────── */}
           {step === 0 && (
             <div className="flex-1 space-y-6">
-              <div>
-                <div className='flex justify-between items-center'>
+              <div className="flex justify-between items-center">
+                <div>
                   <h3 className="text-2xl font-poppins-bold text-slate-800 mb-1">Looking For</h3>
-                  <div className='rounded-full border p-2 shadow-xl shadow-black/20'>
-                    <BinocularsIcon className='text-black' size={30} />
-                  </div>
+                  <p className="text-sm text-slate-400 font-poppins-regular">Where do you want to move to?</p>
                 </div>
-                <p className="text-sm text-slate-400 font-poppins-regular">Where do you want to move to?</p>
+                <div className="rounded-full border p-2 shadow-xl shadow-black/20">
+                  <BinocularsIcon className="text-black" size={30} />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Property Type</label>
-                  <select value={lookingType} onChange={e => setLookingType(e.target.value as PropertyType)} className={fc('lookingType')}>
+                  <select value={desiredType} onChange={e => setDesiredType(e.target.value as PropertyType)} className={fc('desiredType')}>
                     <option value="No Option" disabled>Select type…</option>
                     {PROPERTY_TYPES.filter(t => t !== 'No Option').map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
-                  <Err field="lookingType" />
+                  <Err field="desiredType" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Desired State</label>
-                  <select value={lookingLoc} onChange={e => setLookingLoc(e.target.value as Location)} className={fc('lookingLoc')}>
+                  <select value={desiredCity} onChange={e => setDesiredCity(e.target.value as Location)} className={fc('desiredCity')}>
                     <option value="No Option" disabled>Select state…</option>
                     {LOCATIONS.filter(l => l !== 'No Option').map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
-                  <Err field="lookingLoc" />
+                  <Err field="desiredCity" />
                 </div>
 
                 <div>
@@ -255,17 +300,16 @@ const SwapForm: React.FC = () => {
                     type="text"
                     value={budgetDisplay}
                     onChange={e => {
-                      // FIX 3: strip commas BEFORE converting to Number
-                      const raw = e.target.value.replace(/,/g, '');
-                      const num = Number(raw);
-                      if (isNaN(num)) return;
-                      setBudget(num);
-                      setBudgetDisplay(num === 0 ? '' : num.toLocaleString('en-NG'));
+                      const raw = e.target.value.replace(/,/g, '')
+                      const num = Number(raw)
+                      if (isNaN(num)) return
+                      setMaxBudget(num)
+                      setBudgetDisplay(num === 0 ? '' : num.toLocaleString('en-NG'))
                     }}
                     placeholder="e.g. 800,000"
-                    className={fc('budget')}
+                    className={fc('maxBudget')}
                   />
-                  <Err field="budget" />
+                  <Err field="maxBudget" />
                 </div>
 
                 <div>
@@ -280,67 +324,84 @@ const SwapForm: React.FC = () => {
             </div>
           )}
 
-          {/* ── Step 2: Leaving From ──────────────────────────────────── */}
+          {/* ── Step 2: Leaving From ────────────────────────────────────────── */}
           {step === 1 && (
             <div className="flex-1 space-y-6">
-              <div>
-                <div className='flex justify-between items-center'>
+              <div className="flex justify-between items-center">
+                <div>
                   <h3 className="text-2xl font-poppins-bold text-slate-800 mb-1">Leaving From</h3>
-                  <div className='rounded-full border p-2 shadow-xl shadow-black/20'>
-                    <DoorOpenIcon className='text-black' size={30} />
-                  </div>
+                  <p className="text-sm text-slate-400 font-poppins-regular">Tell us about your current home.</p>
                 </div>
-                <p className="text-sm text-slate-400 font-poppins-regular">Tell us about your current home.</p>
+                <div className="rounded-full border p-2 shadow-xl shadow-black/20">
+                  <DoorOpenIcon className="text-black" size={30} />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Property Type</label>
-                  <select value={leavingType} onChange={e => setLeavingType(e.target.value as PropertyType)} className={fc('leavingType')}>
+                  <select value={currentType} onChange={e => setCurrentType(e.target.value as PropertyType)} className={fc('currentType')}>
                     <option value="No Option" disabled>Select type…</option>
                     {PROPERTY_TYPES.filter(t => t !== 'No Option').map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
-                  <Err field="leavingType" />
+                  <Err field="currentType" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Current State</label>
-                  <select value={leavingLoc} onChange={e => setLeavingLoc(e.target.value as Location)} className={fc('leavingLoc')}>
+                  <select value={currentCity} onChange={e => setCurrentCity(e.target.value as Location)} className={fc('currentCity')}>
                     <option value="No Option" disabled>Select state…</option>
                     {LOCATIONS.filter(l => l !== 'No Option').map(l => <option key={l} value={l}>{l}</option>)}
                   </select>
-                  <Err field="leavingLoc" />
+                  <Err field="currentCity" />
                 </div>
 
                 <div>
                   <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Is the apartment available?</label>
                   <select
-                    value={isAvailable === null ? 'No Option' : String(isAvailable)}
-                    onChange={e => setIsAvailable(e.target.value === 'true')}
-                    className={fc('availiablity')}
+                    value={currentAvailable === null ? 'No Option' : String(currentAvailable)}
+                    onChange={e => setCurrentAvailable(e.target.value === 'true')}
+                    className={fc('currentAvailable')}
                   >
                     <option value="No Option" disabled>Select…</option>
                     <option value="true">Yes, it's available</option>
-                    <option value="false">No, it is not available</option>
+                    <option value="false">No, not yet</option>
                   </select>
-                  <Err field="availiablity" />
+                  <Err field="currentAvailable" />
                 </div>
 
-                {/* Only shown when apartment is available */}
-                {isAvailable === true && (
                   <div>
                     <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Available On</label>
                     <input
                       type="date"
-                      value={vacancyDate}
-                      onChange={e => setVacancyDate(e.target.value)}
-                      className={fc('vacancyDate')}
+                      disabled={!currentAvailable}
+                      value={currentAvailableOn}
+                      onChange={e => setCurrentAvailableOn(e.target.value)}
+                      className={fc('currentAvailableOn')}
                     />
-                    <Err field="vacancyDate" />
+                    <Err field="currentAvailableOn" />
                   </div>
-                )}
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Current Rent (₦ / Yearly)</label>
+                  <input
+                    type="text"
+                    value={currentRentDisplay}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/,/g, '')
+                      const num = Number(raw)
+                      if (isNaN(num)) return
+                      setCurrentRent(num)
+                      setCurrentRentDisplay(num === 0 ? '' : num.toLocaleString('en-NG'))
+                    }}
+                    placeholder="e.g. 800,000"
+                    className={fc('currentRent')}
+                  />
+                  <Err field="currentRent" />
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-poppins-medium text-slate-600 mb-3">
                   Home Features <span className="text-slate-400">(Select at least one)</span>
@@ -349,11 +410,10 @@ const SwapForm: React.FC = () => {
                   {FEATURES.map(feat => (
                     <label
                       key={feat}
-                      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all text-sm ${
-                        selectedFeatures.includes(feat)
-                          ? 'bg-emerald-50 border-emerald-500 text-emerald-700 font-poppins-bold'
-                          : 'border-slate-200 text-slate-500 font-poppins-regular'
-                      }`}
+                      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all text-sm ${selectedFeatures.includes(feat)
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-700 font-poppins-bold'
+                        : 'border-slate-200 text-slate-500 font-poppins-regular'
+                        }`}
                     >
                       <input type="checkbox" className="hidden" checked={selectedFeatures.includes(feat)} onChange={() => toggleFeature(feat)} />
                       {selectedFeatures.includes(feat) ? <CheckSquare size={18} /> : <Square size={18} />}
@@ -366,7 +426,7 @@ const SwapForm: React.FC = () => {
             </div>
           )}
 
-          {/* ── Step 3: Confirm ───────────────────────────────────────── */}
+          {/* ── Step 3: Confirm ─────────────────────────────────────────────── */}
           {step === 2 && (
             <div className="flex-1 space-y-6">
               <div>
@@ -377,19 +437,19 @@ const SwapForm: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
                   <p className="text-[10px] font-poppins-bold text-emerald-600 uppercase tracking-widest mb-3">Looking For</p>
-                  <p className="font-poppins-bold text-slate-800">{lookingType}</p>
-                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{lookingLoc}</p>
-                  <p className="text-slate-500 font-poppins-regular text-sm">₦{budget.toLocaleString()} / yr</p>
+                  <p className="font-poppins-bold text-slate-800">{desiredType}</p>
+                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{desiredCity}</p>
+                  <p className="text-slate-500 font-poppins-regular text-sm">₦{maxBudget.toLocaleString()} / yr</p>
                   <p className="text-slate-500 font-poppins-regular text-sm">{timeline}</p>
                 </div>
 
                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5">
                   <p className="text-[10px] font-poppins-bold text-slate-500 uppercase tracking-widest mb-3">Leaving From</p>
-                  <p className="font-poppins-bold text-slate-800">{leavingType}</p>
-                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{leavingLoc}</p>
+                  <p className="font-poppins-bold text-slate-800">{currentType}</p>
+                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{currentCity}</p>
                   <p className="text-slate-500 font-poppins-regular text-sm">
-                    {isAvailable
-                      ? `Available ${vacancyDate ? new Date(vacancyDate).toLocaleDateString('en-NG', { dateStyle: 'medium' }) : '—'}`
+                    {currentAvailable
+                      ? `Available ${currentAvailableOn ? new Date(currentAvailableOn).toLocaleDateString('en-NG', { dateStyle: 'medium' }) : '—'}`
                       : 'Not currently available'}
                   </p>
                 </div>
@@ -408,13 +468,14 @@ const SwapForm: React.FC = () => {
             </div>
           )}
 
-          {/* ── Navigation buttons ────────────────────────────────────── */}
+          {/* ── Navigation ──────────────────────────────────────────────────── */}
           <div className={`flex mt-8 pt-6 border-t border-slate-100 ${step > 0 ? 'justify-between' : 'justify-end'}`}>
             {step > 0 && (
               <button
                 type="button"
                 onClick={goBack}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-poppins-medium hover:bg-slate-50 transition-all"
+                disabled={loading}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-poppins-medium hover:bg-slate-50 transition-all disabled:opacity-50"
               >
                 <ChevronLeft size={18} /> Back
               </button>
@@ -432,16 +493,26 @@ const SwapForm: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="flex items-center gap-2 bg-emerald-600 text-white px-8 py-3 rounded-xl font-poppins-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+                disabled={loading}
+                className="flex items-center gap-2 bg-emerald-600 text-white px-8 py-3 rounded-xl font-poppins-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Find My Swap Match <ChevronRight size={18} />
+                {loading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Submitting…
+                  </>
+                ) : (
+                  <>
+                    Find My Swap Match <ChevronRight size={18} />
+                  </>
+                )}
               </button>
             )}
           </div>
         </div>
       </div>
     </GuestLayout>
-  );
-};
+  )
+}
 
-export default SwapForm;
+export default Engine

@@ -5,6 +5,7 @@ const apiClient: AxiosInstance = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  validateStatus: () => true,
 });
 
 export const Client = {

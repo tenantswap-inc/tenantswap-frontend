@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Poppins } from 'next/font/google';
-
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -22,24 +22,29 @@ export const metadata: Metadata = {
       "de-DE": `${url}/de-DE`,
     },
   },
-  openGraph: {
-    title: "Tenant Swap",
-    description: "Zero Agent Fees for Nigerian Tenants",
-    url: `${url}`,
-    siteName: "Tenant Swap",
-    images: [{ url: `${url}` }],
-  },
+  // openGraph: {
+  //   title: "Tenant Swap",
+  //   description: "Zero Agent Fees for Nigerian Tenants",
+  //   url: `${url}`,
+  //   siteName: "Tenant Swap",
+  //   images: [{ url: `${url}` }],
+  // },
     icons: { icon: "/ABSG-Coat-of-Arms_Master.png" },
 
 };
 
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+
+    const clientId = process.env.GOOGLE_CLIENT_ID as string;
   return (
     <html lang="en">
       <body className={`${poppins.variable} antialiased`}>
-        {children}
+        <GoogleOAuthProvider clientId={clientId}>
+             {children}
+        </GoogleOAuthProvider>
       </body>
     </html>
   );

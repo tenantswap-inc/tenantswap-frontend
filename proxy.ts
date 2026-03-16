@@ -20,7 +20,7 @@ export default function proxy(request: NextRequest) {
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
         "Access-Control-Max-Age": "86400",
         // Include if you need credential support
-        // "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Credentials": "true",
       },
     });
   }

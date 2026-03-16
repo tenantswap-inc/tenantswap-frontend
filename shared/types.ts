@@ -1,8 +1,8 @@
 
-export type PropertyType = 'No Option'|'2BR Flat' | 'Self-Contain' | '1BR Flat' | '4BR Duplex' | '3BR Flat';
+export type PropertyType = 'No Option' | '2BR Flat' | 'Self-Contain' | '1BR Flat' | '4BR Duplex' | '3BR Flat';
 export type Timeline = 'Immediate' | 'Within 1 Month' | '1-3 Months' | 'Flexible' | 'No Option';
 export type Location =
-"No Option"
+  "No Option"
   | 'Abia'
   | 'Adamawa'
   | 'Akwa Ibom'
@@ -54,6 +54,7 @@ export interface SwapRequest {
   features: string[];
   canConnectLandlord: boolean,
   hasLandlordContact: boolean,
+  allowIncomingCalls: boolean,
   onboardingComplete: boolean,
 }
 
@@ -74,8 +75,62 @@ export interface UserState {
   currentUser: User | null;
 }
 
-export interface UnregisteredUser{
+export interface UnregisteredUser {
   name: string;
   phone: string;
   email: string;
+}
+
+export type ListingStatus = 'DRAFT' | 'ACTIVE' | 'MATCHED' | 'CLOSED' | 'EXPIRED'
+
+export type ListingCloseReason =
+  | 'MATCHED'
+  | 'EXPIRED'
+  | 'USER_CLOSED'
+  | 'ADMIN_CLOSED'
+  | 'NO_MATCH_FOUND'
+
+export interface SwapListing {
+  id: string
+  userId: string
+  status: ListingStatus
+
+  // What the user is looking for
+  desiredType: string
+  desiredCity: string
+  maxBudget: number
+  timeline: string
+
+  // What the user is leaving
+currentType: string
+  currentCity: string
+  currentRent: number           // ← add
+  currentAvailable: boolean     // ← was currentAvailiable (typo fixed)
+  currentAvailableOn: string | null  // ← add
+
+  features: string[]
+
+  // Interest-based matching metadata
+  matchedInterestId: string | null
+  matchedAt: Date | null
+  expiresAt: Date | null
+  closedAt: Date | null
+  closeReason: ListingCloseReason | null
+  closedByUserId: string | null
+
+  // Auto search tracking
+  autoSearchEnabled: boolean
+  lastRecommendationCount: number
+  autoSearchLastRunAt: Date | null
+  autoSearchMatchedAt: Date | null
+
+  createdAt: Date
+}
+
+export interface OAuthUser {
+  id: string;
+  fullName: string;
+  email: string;
+  avatar: string;
+  token: string;
 }

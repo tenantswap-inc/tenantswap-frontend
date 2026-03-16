@@ -36,14 +36,13 @@
   src: url('/fonts/poppins/Poppins-Regular.ttf') format('truetype');
 }
 
-
-
 @theme {
   --font-inter: 'Inter', sans-serif;
   --font-poppins-medium: 'Poppins-Medium', sans-serif;
   --font-poppins-black: 'Poppins-Black', sans-serif;
   --font-poppins-bold: 'Poppins-Bold', sans-serif;
     --font-poppins-regular: 'Poppins-Regular', sans-serif;
+  --color-primary-green:#059669;
   --color-lime-green: #81c14b;
   --color-lime-green-light: #cafcac;
   --color-dark-blue: #001845;

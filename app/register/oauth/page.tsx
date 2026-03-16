@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import Link from "next/link"
 import { UserPlus, User, Phone, Lock, Mail, Eye, EyeOff } from "lucide-react"
 import GuestLayout from "@/app/GuestLayout"
 import { z } from "zod"
@@ -10,8 +9,10 @@ import { X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Onboarding from "@/components/onboarding"
 import { Client } from "@/shared/utils/ApiClient"
-import GoogleSignInButton from "@/components/GoogleSignInButton"
 import { Check } from "lucide-react"
+import { OAuthUser } from "@/shared/types"
+
+
 
 
 /* ========================= ZOD SCHEMA ========================= */
@@ -58,6 +59,9 @@ const Register: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [registeredUser, setRegisteredUser] = useState<RegisteredUser | null>(null)
+  const [oauthProvider, setOauthProvider] = useState<boolean>(false)
+  const [oauthIdToken, setOauthIdToken] = useState<string>("")
+    const [oauthUser, setOauthUser] = useState<OAuthUser|null>(null)
   const [form, setForm] = useState<FormData>({
     fullName: "",
     phone: "",
@@ -72,7 +76,27 @@ const Register: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [alertMsg, setAlertMsg] = useState("")
 
+  useEffect(() => {
+    if (localStorage.getItem("OAuthUser")) {
+      const user: OAuthUser = JSON.parse(localStorage.getItem("OAuthUser") as string)
+      const password = `Tenantswap-${user.id}@gmail.com`
 
+      setOauthIdToken(user.token)
+      setOauthUser(user)
+      setForm({
+        fullName: user.fullName,
+        phone: "",
+        email: user.email,
+        password: password,
+        confirmPassword: password,
+        agreeTerms: false,
+        gender: "",
+        relationshipStatus: "",
+        occupation: "",
+      })
+      setOauthProvider(true)
+    }
+  }, [setForm, setOauthProvider])
 
 
   useEffect(() => {
@@ -81,11 +105,7 @@ const Register: React.FC = () => {
     return () => clearTimeout(timer)
   }, [alertMsg])
 
-
-  const update = (field: keyof FormData, value: any) =>
-    setForm((prev) => ({ ...prev, [field]: value }))
-
-    const formatNigerianPhone = (value: string): string => {
+  const formatNigerianPhone = (value: string): string => {
     const digits = value.replace(/\D/g, "") // strip non-digits
 
     if (digits.startsWith("0") && digits.length === 11) {
@@ -94,6 +114,10 @@ const Register: React.FC = () => {
 
     return value // return as-is if it doesn't match the pattern
   }
+
+
+  const update = (field: keyof FormData, value: any) =>
+    setForm((prev) => ({ ...prev, [field]: value }))
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -114,33 +138,48 @@ const Register: React.FC = () => {
       ...result.data,
       canConnectLandlord: false,
       hasLandlordContact: false,
-      allowIncomingCalls: false,
+      allowIncomingCalls: false
     }
     setRegisteredUser(newUser)
     setShowOnboarding(true)
   }
 
   const handleOnboardingComplete = async (updatedUser: RegisteredUser) => {
+
+
     try {
 
+
       const response = await Client.post("/auth/register", {
-        authType: "password",
-        email: updatedUser.email,
-        password: updatedUser.password,
-        fullName: updatedUser.fullName,
+        authType: "oauth",
+        oauthProvider: "google",
+        oauthIdToken: oauthIdToken,
+        oauthId: oauthUser?.id,
+        profilePhotoUrl: oauthUser?.avatar,
+        fullName:updatedUser.fullName,
         phone: updatedUser.phone,
+        email: updatedUser.email,
         gender: updatedUser.gender,
         relationship_status: updatedUser.relationshipStatus,
         occupation: updatedUser.occupation,
         canConnectLandlord: updatedUser.canConnectLandlord,
         hasLandlordContact: updatedUser.hasLandlordContact,
         allowIncomingCalls: updatedUser.allowIncomingCalls,
-
       })
 
-      if (response.status === 201 || response.status === 200 || response.status === 204) {
-        setAlertMsg("Registration successful. Check your email for verification mail.");
-        router.push("/login");
+      const data = response.data
+
+      console.log(response.data)
+      if (response.status === 201 || response.status === 200) {
+        const token: string = data.data.accessToken
+
+        if (token) {
+          console.log({ token })
+          localStorage.setItem("JWT_TOKEN", token)
+          setAlertMsg("Registration successful. Redirectiog to Dashboard.")
+          router.push("/dashboard")
+        }
+
       }
     } catch (error: any) {
       if (error.response) {
@@ -242,6 +281,7 @@ const Register: React.FC = () => {
                     <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                     <input
                       value={form.fullName}
+                      disabled={oauthProvider}
                       onChange={(e) => update("fullName", e.target.value)}
                       className={inputClass("fullName")}
                       placeholder="Adekunle Ciroma"
@@ -277,6 +317,7 @@ const Register: React.FC = () => {
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                     <input
                       value={form.email}
+                      disabled={oauthProvider}
                       onChange={(e) => update("email", e.target.value)}
                       className={inputClass("email")}
                       placeholder="example@gmail.com"
@@ -293,6 +334,7 @@ const Register: React.FC = () => {
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                       <input
                         type={showPassword ? "text" : "password"}
+                        disabled={oauthProvider}
                         value={form.password}
                         placeholder="••••••••"
                         onChange={(e) => update("password", e.target.value)}
@@ -318,6 +360,7 @@ const Register: React.FC = () => {
                       <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                       <input
                         type={showConfirmPassword ? "text" : "password"}
+                        disabled={oauthProvider}
                         placeholder="••••••••"
                         value={form.confirmPassword}
                         onChange={(e) => update("confirmPassword", e.target.value)}
@@ -352,8 +395,8 @@ const Register: React.FC = () => {
                         value={form.gender ?? ""}
                         onChange={(e) => update("gender", e.target.value)}
                         className={`w-full pl-4 pr-8 py-3 rounded-xl border-2 bg-slate-50/60 outline-none text-sm transition-all duration-200 font-poppins-regular appearance-none cursor-pointer ${errors.gender
-                            ? "border-red-400 bg-red-50/40 focus:border-red-400"
-                            : "border-slate-100 focus:border-emerald-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(52,211,153,0.1)]"
+                          ? "border-red-400 bg-red-50/40 focus:border-red-400"
+                          : "border-slate-100 focus:border-emerald-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(52,211,153,0.1)]"
                           } ${!form.gender ? "text-slate-300" : "text-slate-700"}`}
                       >
                         <option value="" disabled>Select</option>
@@ -376,8 +419,8 @@ const Register: React.FC = () => {
                         value={form.relationshipStatus ?? ""}
                         onChange={(e) => update("relationshipStatus", e.target.value)}
                         className={`w-full pl-4 pr-8 py-3 rounded-xl border-2 bg-slate-50/60 outline-none text-sm transition-all duration-200 font-poppins-regular appearance-none cursor-pointer ${errors.relationshipStatus
-                            ? "border-red-400 bg-red-50/40 focus:border-red-400"
-                            : "border-slate-100 focus:border-emerald-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(52,211,153,0.1)]"
+                          ? "border-red-400 bg-red-50/40 focus:border-red-400"
+                          : "border-slate-100 focus:border-emerald-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(52,211,153,0.1)]"
                           } ${!form.relationshipStatus ? "text-slate-300" : "text-slate-700"}`}
                       >
                         <option value="" disabled>Select</option>
@@ -454,24 +497,13 @@ const Register: React.FC = () => {
                   </span>
                 </button>
 
-                {/* Divider */}
-                <div className="flex items-center gap-3 py-1">
-                  <div className="flex-1 h-px bg-slate-100" />
-                  <span className="text-xs font-poppins-medium text-slate-300 px-1">or continue with</span>
-                  <div className="flex-1 h-px bg-slate-100" />
-                </div>
+
               </form>
-              <GoogleSignInButton register={true} />
-
-              <div id="clerk-captcha" />
 
 
-              <p className="text-center mt-5 text-xs font-poppins-regular text-slate-400">
-                Already have an account?{" "}
-                <Link href="/login" className="text-emerald-600 font-poppins-bold hover:text-emerald-700 transition-colors">
-                  Sign In
-                </Link>
-              </p>
+
+
+
             </div>
           </div>
         </div>

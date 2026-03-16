@@ -1,72 +1,107 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { SwapRequest, MatchChain } from '@/shared/types';
-import { findMatches } from '@/services/MatchingEngine';
+import { SwapListing } from '@/shared/types';
 import {
-  FilePlus, Edit2, Link2Off, ArrowRight, ArrowDown, ArrowUp,
-  Phone, MessageSquare, ShieldCheck, FileText, Home,
+  FilePlus, Edit2, Link2Off, ArrowRight,
+  ShieldCheck, FileText, Home, CalendarClock,
+  BadgeCheck, Clock4,
 } from 'lucide-react';
+import { Client } from '@/shared/utils/ApiClient';
+import { useRouter } from 'next/navigation';
 
-// ─── helpers ────────────────────────────────────────────────────────────────
-
-function readCurrentUser(): SwapRequest | null {
-  try {
-    const raw = localStorage.getItem('authenticatedUser');
-    if (!raw) return null;
-    return JSON.parse(raw) as SwapRequest;
-  } catch {
-    return null;
-  }
+export interface User {
+  id: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  role: 'USER' | 'ADMIN';
+  subscriptionStatus: 'ACTIVE' | 'INACTIVE' | 'EXPIRED';
+  subscriptionExpiresAt: string | null;
+  reliabilityScore: number;
+  cancellationCount: number;
+  noShowCount: number;
+  cooldownUntil: string | null;
+  blockedUntil: string | null;
+  profilePhotoUrl: string | null;
+  gender: 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY' | null;
+  occupation: string | null;
+  allowIncomingCalls: boolean;
+  oauthProvider: 'GOOGLE' | 'APPLE' | null;
+  canConnectLandlord: boolean;
+  hasLandlordContact: boolean;
+  onboardingComplete: boolean;
+  phoneVerifiedAt: string | null;
+  listings: SwapListing[];
 }
 
-// Read all swap requests saved to localStorage.
-// In a real multi-user scenario, replace this with an API call.
-function readAllRequests(): SwapRequest[] {
-  try {
-    const raw = localStorage.getItem('allRequests');
-    if (!raw) return [];
-    return JSON.parse(raw) as SwapRequest[];
-  } catch {
-    return [];
-  }
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+function getActiveListing(listings: SwapListing[]): SwapListing | null {
+  if (!listings?.length) return null;
+  return (
+    listings.find((l) => l.status === 'ACTIVE') ??
+    [...listings].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )[0]
+  );
 }
 
-// ─── component ───────────────────────────────────────────────────────────────
+function formatDate(dateStr: string | Date | null): string {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('en-NG', { dateStyle: 'medium' });
+}
+
+const STATUS_COLORS: Record<SwapListing['status'], string> = {
+  DRAFT:   'bg-slate-100 text-slate-500',
+  ACTIVE:  'bg-emerald-100 text-emerald-700',
+  MATCHED: 'bg-blue-100 text-blue-700',
+  CLOSED:  'bg-red-100 text-red-600',
+  EXPIRED: 'bg-amber-100 text-amber-700',
+};
+
+// ─── component ────────────────────────────────────────────────────────────────
 
 const Dashboard: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<SwapRequest | null>(null);
-  const [storedRequests, setStoredRequests] = useState<SwapRequest[]>([]);
-  const [hydrated, setHydrated] = useState(false);
-  const [revealedPhone, setRevealedPhone] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [hydrated, setHydrated]       = useState(false);
+  const router = useRouter();
 
-  // Read from localStorage once on mount (avoids SSR mismatch)
+  const readCurrentUser = async () => {
+    try {
+      const token = localStorage.getItem('JWT_TOKEN');
+      if (!token) { router.push('/login'); return; }
+
+      const response = await Client.get('/users/me', {}, {
+        Authorization: `Bearer ${token}`,
+      });
+
+      if (response.status === 200) {
+        setCurrentUser(response.data.data.user);
+        return;
+      }
+
+      localStorage.removeItem('JWT_TOKEN');
+      router.push('/login');
+    } catch {
+      localStorage.removeItem('JWT_TOKEN');
+      router.push('/login');
+    }
+  };
+
   useEffect(() => {
-    const user = readCurrentUser();
-    const all  = readAllRequests();
-    setCurrentUser(user);
-    setStoredRequests(all);
-    setHydrated(true);
+    readCurrentUser().finally(() => setHydrated(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Merge live user into the full pool so the engine includes them
-  const allRequests: SwapRequest[] = useMemo(() => {
-    if (!currentUser) return storedRequests;
-    const others = storedRequests.filter(r => r.id !== currentUser.id);
-    return [currentUser, ...others];
-  }, [currentUser, storedRequests]);
-
-  const homes: MatchChain[] = useMemo(() => {
-    if (!currentUser) return [];
-    return findMatches(currentUser, allRequests);
-  }, [currentUser, allRequests]);
-
-  // Avoid flash before localStorage is read
   if (!hydrated) return null;
 
-  // ── Empty state ─────────────────────────────────────────────────────────────
-  if (!currentUser) {
+  const activeListing = currentUser ? getActiveListing(currentUser.listings) : null;
+
+  // ── no listing ─────────────────────────────────────────────────────────────
+
+  if (!currentUser || !activeListing) {
     return (
       <div className="max-w-4xl mx-auto py-20 px-4 text-center">
         <div className="bg-white p-12 rounded-3xl shadow-sm border border-slate-200">
@@ -88,20 +123,31 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // ── Main dashboard ──────────────────────────────────────────────────────────
+  // ── main dashboard ─────────────────────────────────────────────────────────
+
   return (
     <div className="max-w-6xl mx-auto py-12 px-4">
+
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
         <div>
+          <p className="text-sm text-slate-400 font-poppins-regular mb-1">
+            Welcome back, <span className="text-slate-700 font-poppins-bold">{currentUser.fullName}</span>
+          </p>
           <h2 className="text-4xl font-poppins-bold text-slate-900 tracking-tight">
             Your Swap Dashboard
           </h2>
-          <p className="text-slate-500 font-poppins-regular mt-2">
-            Algorithm detected{' '}
-            <span className="text-emerald-600 font-poppins-bold">{homes.length}</span>{' '}
-            potential {homes.length === 1 ? 'home' : 'homes'} for you.
-          </p>
+          <div className="flex items-center gap-3 mt-2">
+            <span className={`inline-block text-xs font-poppins-bold px-3 py-1 rounded-full ${STATUS_COLORS[activeListing.status]}`}>
+              {activeListing.status}
+            </span>
+            {activeListing.expiresAt && (
+              <span className="text-xs text-slate-400 font-poppins-regular flex items-center gap-1">
+                <Clock4 size={12} />
+                Expires {formatDate(activeListing.expiresAt)}
+              </span>
+            )}
+          </div>
         </div>
         <Link
           href="/engine"
@@ -111,37 +157,63 @@ const Dashboard: React.FC = () => {
         </Link>
       </div>
 
-      {/* User's current request summary */}
+      {/* Active listing summary */}
       <div className="mb-10 bg-emerald-50 border border-emerald-100 rounded-3xl p-6 flex flex-col sm:flex-row gap-6">
+
+        {/* Leaving */}
         <div className="flex-1">
-          <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">You're Leaving</p>
-          <p className="font-poppins-bold text-slate-800">
-            {currentUser.leavingFrom.type} · {currentUser.leavingFrom.location}
+          <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">
+            You're Leaving
           </p>
-          {currentUser.leavingFrom.vacancyDate && (
-            <p className="text-xs text-slate-500 font-poppins-regular mt-1">
-              Available {new Date(currentUser.leavingFrom.vacancyDate).toLocaleDateString('en-NG', { dateStyle: 'medium' })}
+          <p className="font-poppins-bold text-slate-800">
+            {activeListing.currentType} · {activeListing.currentCity}
+          </p>
+          <p className="text-xs text-slate-500 font-poppins-regular mt-1">
+            Current rent: ₦{activeListing.currentRent.toLocaleString()} / yr
+          </p>
+          {activeListing.currentAvailable ? (
+            <p className="text-xs text-emerald-600 font-poppins-medium mt-1 flex items-center gap-1">
+              <BadgeCheck size={12} />
+              Available from {formatDate(activeListing.currentAvailableOn)}
             </p>
+          ) : (
+            <p className="text-xs text-slate-400 font-poppins-regular mt-1">Not yet available</p>
           )}
         </div>
+
         <div className="hidden sm:flex items-center text-emerald-400">
           <ArrowRight size={24} />
         </div>
+
+        {/* Looking for */}
         <div className="flex-1">
-          <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">You're Looking For</p>
+          <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">
+            You're Looking For
+          </p>
           <p className="font-poppins-bold text-slate-800">
-            {currentUser.lookingFor.type} · {currentUser.lookingFor.location}
+            {activeListing.desiredType} · {activeListing.desiredCity}
           </p>
           <p className="text-xs text-slate-500 font-poppins-regular mt-1">
-            Budget: ₦{currentUser.lookingFor.budget.toLocaleString()} / yr · {currentUser.lookingFor.timeline}
+            Budget: ₦{activeListing.maxBudget.toLocaleString()} / yr
+          </p>
+          <p className="text-xs text-slate-500 font-poppins-regular mt-0.5 flex items-center gap-1">
+            <CalendarClock size={12} />
+            {activeListing.timeline}
           </p>
         </div>
-        {currentUser.features.length > 0 && (
+
+        {/* Features */}
+        {activeListing.features.length > 0 && (
           <div className="flex-1">
-            <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-2">Features</p>
+            <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-2">
+              Features
+            </p>
             <div className="flex flex-wrap gap-2">
-              {currentUser.features.map(f => (
-                <span key={f} className="text-xs bg-white border border-emerald-200 text-emerald-700 px-2 py-1 rounded-lg font-poppins-medium">
+              {activeListing.features.map((f) => (
+                <span
+                  key={f}
+                  className="text-xs bg-white border border-emerald-200 text-emerald-700 px-2 py-1 rounded-lg font-poppins-medium"
+                >
                   {f}
                 </span>
               ))}
@@ -150,113 +222,65 @@ const Dashboard: React.FC = () => {
         )}
       </div>
 
-      {/* Homes */}
-      <div className="grid grid-cols-1 gap-12">
-        {homes.length === 0 ? (
-          <div className="bg-white p-20 rounded-3xl border border-dashed border-slate-300 text-center">
-            <div className="text-slate-300 flex justify-center mb-6">
-              <Link2Off size={64} />
-            </div>
-            <h3 className="text-2xl font-poppins-bold text-slate-400">No homes found yet</h3>
-            <p className="text-slate-400 font-poppins-regular mt-2">
-              Wait for more tenants to join or try adjusting your requirements.
-            </p>
-          </div>
-        ) : (
-          homes.map((home) => (
-            <div key={home.id} className="relative">
-              {/* Home label badge */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-emerald-600 text-white px-6 py-2 rounded-full font-poppins-bold text-sm shadow-lg z-10">
-                {home.isDirect ? 'Direct 2-Way Match' : `${home.participants.length}-Way Swap`}
-              </div>
-
-              <div className="bg-white p-8 lg:p-12 rounded-[2.5rem] shadow-xl border border-emerald-100 overflow-hidden">
-                <div className="flex flex-col lg:flex-row items-stretch gap-8 relative">
-                  {home.participants.map((p, pIdx) => (
-                    <React.Fragment key={p.id}>
-                      <div className="flex-1 bg-slate-50 p-6 rounded-3xl border border-slate-100 flex flex-col justify-between hover:border-emerald-300 transition-all">
-                        <div>
-                          <div className="flex justify-between items-center mb-4">
-                            <span className="text-xs font-poppins-bold uppercase tracking-widest text-emerald-600">
-                              {p.id === currentUser.id ? 'YOU' : `Tenant #${pIdx + 1}`}
-                            </span>
-                            <span className="text-xs bg-white px-2 py-1 rounded-md text-slate-400 border border-slate-200 font-poppins-regular">
-                              ID: {p.id.split('-')[1]}
-                            </span>
-                          </div>
-
-                          <div className="space-y-4">
-                            <div>
-                              <p className="text-[10px] text-slate-400 font-poppins-bold uppercase mb-1">Has</p>
-                              <p className="text-slate-800 font-poppins-bold">
-                                {p.leavingFrom.type} in {p.leavingFrom.location}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-slate-400 font-poppins-bold uppercase mb-1">Wants</p>
-                              <p className="text-slate-800 font-poppins-bold">
-                                {p.lookingFor.type} in {p.lookingFor.location}
-                              </p>
-                            </div>
-                            <div className="flex gap-2 flex-wrap">
-                              {p.canConnectLandlord && (
-                                <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-lg font-poppins-medium">
-                                  Can connect landlord
-                                </span>
-                              )}
-                              {p.hasLandlordContact && (
-                                <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-1 rounded-lg font-poppins-medium">
-                                  Has landlord contact
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {p.id !== currentUser.id && (
-                          <div className="mt-8 pt-6 border-t border-slate-200 flex flex-col gap-3">
-                            <button
-                              onClick={() =>
-                                setRevealedPhone(revealedPhone === p.phoneNumber ? null : p.phoneNumber)
-                              }
-                              className="w-full bg-emerald-600 text-white py-3 rounded-xl font-poppins-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 text-sm shadow-md shadow-emerald-600/10"
-                            >
-                              <Phone size={16} />
-                              {revealedPhone === p.phoneNumber ? p.phoneNumber : 'Connect'}
-                            </button>
-                            <button className="w-full bg-slate-200 text-slate-600 py-3 rounded-xl font-poppins-bold hover:bg-slate-300 transition-all text-sm flex items-center justify-center gap-2">
-                              <MessageSquare size={16} /> Message
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {pIdx < home.participants.length - 1 && (
-                        <div className="flex flex-col justify-center items-center text-emerald-400">
-                          <div className="hidden lg:block">
-                            <ArrowRight size={32} />
-                          </div>
-                          <div className="lg:hidden py-2">
-                            <ArrowDown size={28} />
-                          </div>
-                        </div>
-                      )}
-                    </React.Fragment>
-                  ))}
-
-                  {!home.isDirect && (
-                    <div className="hidden lg:flex flex-col justify-center items-center text-emerald-200 absolute -right-4 top-1/2 -translate-y-1/2">
-                      <div className="h-64 border-r-2 border-dashed border-emerald-200 rounded-r-full w-12" />
-                      <div className="absolute bottom-0 right-4 translate-y-1/2 rotate-180">
-                        <ArrowUp size={24} />
-                      </div>
-                    </div>
-                  )}
+      {/* All listings (if user has multiple) */}
+      {currentUser.listings.length > 1 && (
+        <div className="mb-10">
+          <h3 className="text-lg font-poppins-bold text-slate-700 mb-4">All Your Listings</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {currentUser.listings.map((listing) => (
+              <div
+                key={listing.id}
+                className={`bg-white border rounded-2xl p-5 ${
+                  listing.id === activeListing.id
+                    ? 'border-emerald-400 shadow-md'
+                    : 'border-slate-200'
+                }`}
+              >
+                <div className="flex justify-between items-center mb-3">
+                  <span className={`text-xs font-poppins-bold px-2 py-1 rounded-full ${STATUS_COLORS[listing.status]}`}>
+                    {listing.status}
+                  </span>
+                  <span className="text-xs text-slate-400 font-poppins-regular">
+                    {formatDate(listing.createdAt)}
+                  </span>
                 </div>
+                <p className="font-poppins-bold text-slate-800 text-sm">
+                  {listing.currentType} → {listing.desiredType}
+                </p>
+                <p className="text-xs text-slate-500 font-poppins-regular mt-1">
+                  {listing.currentCity} → {listing.desiredCity}
+                </p>
+                <p className="text-xs text-slate-400 font-poppins-regular mt-1">
+                  ₦{listing.maxBudget.toLocaleString()} budget ·{' '}
+                  {listing.currentAvailable
+                    ? `Available ${formatDate(listing.currentAvailableOn)}`
+                    : 'Not available yet'}
+                </p>
+                {listing.matchedAt && (
+                  <p className="text-xs text-blue-600 font-poppins-medium mt-2">
+                    Matched {formatDate(listing.matchedAt)}
+                  </p>
+                )}
+                {listing.expiresAt && (
+                  <p className="text-xs text-amber-500 font-poppins-medium mt-1 flex items-center gap-1">
+                    <Clock4 size={10} /> Expires {formatDate(listing.expiresAt)}
+                  </p>
+                )}
               </div>
-            </div>
-          ))
-        )}
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* No matches yet */}
+      <div className="bg-white p-20 rounded-3xl border border-dashed border-slate-300 text-center">
+        <div className="text-slate-300 flex justify-center mb-6">
+          <Link2Off size={64} />
+        </div>
+        <h3 className="text-2xl font-poppins-bold text-slate-400">No homes found yet</h3>
+        <p className="text-slate-400 font-poppins-regular mt-2">
+          Wait for more tenants to join or try adjusting your requirements.
+        </p>
       </div>
 
       {/* Protocol footer */}
@@ -283,6 +307,7 @@ const Dashboard: React.FC = () => {
           <Home size={320} />
         </div>
       </div>
+
     </div>
   );
 };

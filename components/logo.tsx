@@ -1,26 +1,18 @@
 import React from 'react'
+import Image from 'next/image'
 
-interface Props {
-      className?:string
-      autoplay?:boolean
-}
-
-export const Logo: React.FC<Props> = ({className, autoplay}) => {
+export const Logo: React.FC = () => {
 
       return (
-            <div className="bg-emerald-600 text-white p-2 rounded-lg">
-                  {/* <Home className=""/> */}
-
-                  {/* <DotLottieReact
-      src="/homeswapicon.json"      loop
-      autoplay
-          className='h-7 w-7'
-    rel='preload'
-    /> */}
-
-                  <video src="/homeswapicon.webm" className={className ? className : 'h-6 w-6'} autoPlay={autoplay ? true : false} loop muted playsInline />
-
-
-            </div>
+<div className='flex items-center justify-center'>
+            <Image
+      src="/assets/TenantSwap Logo Combination monochrome.svg"
+      alt="TenantSwap"
+      width={170}
+      height={170}
+      preload={true}
+      quality={100}
+      />
+</div>
       )
 }

@@ -1,47 +1,87 @@
-import React from "react";
-import Link from "next/link";
-import { UserState } from "@/shared/types";
-import { Logo } from "./logo";
+"use client"
 
-interface Props {
-  location: string;
-  handleLogout: () => void;
-  userState: UserState;
-}
+import React from "react"
+import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
+import { Logo } from "./logo"
+import { useToken } from "@/shared/hooks/useToken"
 
-const Navbar: React.FC<Props> = ({ location, handleLogout, userState }) => {
+const Navbar: React.FC = () => {
+  const pathname  = usePathname()
+  const router    = useRouter()
+  const isHome    = pathname === "/"
+  const token     = useToken()
+
+  const isLoggedIn =  !!token
+
+console.log(isLoggedIn)
+  const handleLogout = () => {
+    localStorage.removeItem("JWT_TOKEN")
+    router.push("/")
+  }
+
   return (
-    <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
+    <nav className="bg-primary-green shadow-lg shadow-white/10 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
+
+          {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
             <Logo />
-            <span className="text-xl font-poppins-medium text-slate-900 tracking-tight">
-              Tenant<span className="text-emerald-600 font-poppins-bold">Swap</span>
-            </span>
           </Link>
-          <div className="flex items-center gap-4">
-            {userState.isLoggedIn ? (
-              <div>
-                <Link href="/dashboard" className="text-slate-600 hover:text-emerald-600 font-medium">Dashboard</Link>
+
+          {/* Right side */}
+          <div className="flex items-center gap-3">
+
+            {/* Logged-in actions */}
+            {isLoggedIn ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="bg-white text-primary-green px-5 py-2 rounded-lg font-poppins-bold transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                >
+                  Dashboard
+                </Link>
                 <button
                   onClick={handleLogout}
-                  className="text-slate-500 hover:text-red-600 transition-colors"
+                  className="bg-red-500/80 hover:bg-red-600 text-white px-5 py-2 rounded-lg font-poppins-bold transition-all duration-300 hover:-translate-y-0.5 text-sm"
                 >
                   Logout
                 </button>
-              </div>
+              </>
             ) : (
-              <Link href="/register" className={location === "/" ? "bg-emerald-600 font-poppins-bold text-white px-5 py-2 rounded-full font-semibold  animate-bounce  hover:bg-emerald-700 transition-all shadow-sm" : "bg-emerald-600 font-poppins-bold text-white px-5 py-2 rounded-full font-semibold hidden   hover:bg-emerald-700 transition-all shadow-sm"}>
-                Get Started
-              </Link>
+              <>
+                {/* Login — visible only on home, fades out elsewhere */}
+                <Link
+                  href="/login"
+                  className={`bg-white font-poppins-bold text-primary-green px-5 py-2 rounded-lg text-sm shadow-sm transition-all duration-300 hover:-translate-y-0.5
+                    ${isHome
+                      ? "opacity-100 translate-y-0 pointer-events-auto"
+                      : "opacity-0 -translate-y-1 pointer-events-none"
+                    }`}
+                >
+                  Login
+                </Link>
+
+                {/* Get Started — visible only on home */}
+                <Link
+                  href="/register"
+                  className={`bg-white font-poppins-bold text-primary-green px-5 py-2 rounded-lg text-sm shadow-sm transition-all duration-300 hover:-translate-y-0.5
+                    ${isHome
+                      ? "opacity-100 translate-y-0 pointer-events-auto"
+                      : "opacity-0 -translate-y-1 pointer-events-none"
+                    }`}
+                >
+                  Get Started
+                </Link>
+              </>
             )}
+
           </div>
         </div>
       </div>
     </nav>
   )
-
 }
 
-export default Navbar;
+export default Navbar
