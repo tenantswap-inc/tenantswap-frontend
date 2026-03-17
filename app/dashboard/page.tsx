@@ -185,8 +185,9 @@ router.refresh()
 
   if (!currentUser || !activeListing) {
     return (
+      <AuthLayout>
+
       <div className="max-w-4xl mx-auto py-20 px-4 text-center">
-        <Navbar />
         <div className="bg-white p-12 rounded-3xl shadow-sm border border-slate-200">
           <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
             <FilePlus size={40} />
@@ -203,6 +204,7 @@ router.refresh()
           </Link>
         </div>
       </div>
+      </AuthLayout>
     );
   }
 
