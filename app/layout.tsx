@@ -1,14 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Poppins } from 'next/font/google';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['100', '900'], // Specify the weights you need
-  variable: '--font-poppins', // Use a CSS variable for Tailwind or global CSS
-});
-
 
 const url = process.env.API_URL as string;
 
@@ -30,7 +22,6 @@ export const metadata: Metadata = {
   //   images: [{ url: `${url}` }],
   // },
     icons: { icon: "/ABSG-Coat-of-Arms_Master.png" },
-
 };
 
 
@@ -41,7 +32,7 @@ export default function RootLayout({
     const clientId = process.env.GOOGLE_CLIENT_ID as string;
   return (
     <html lang="en">
-      <body className={`${poppins.variable} antialiased`}>
+      <body className={` antialiased`}>
         <GoogleOAuthProvider clientId={clientId}>
              {children}
         </GoogleOAuthProvider>

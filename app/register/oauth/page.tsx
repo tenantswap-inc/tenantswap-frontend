@@ -327,7 +327,7 @@ const Register: React.FC = () => {
                 </div>
 
                 {/* Password row */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className=" md:grid-cols-2 gap-3 hidden">
                   <div className="space-y-1.5">
                     <label className="text-xs font-poppins-bold text-slate-500 uppercase tracking-wider">Password</label>
                     <div className="relative">
@@ -384,7 +384,7 @@ const Register: React.FC = () => {
                 </div>
 
                 {/* Gender & Relationship Status */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid md:grid-cols-2 gap-3">
                   {/* Gender */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-poppins-bold text-slate-500 uppercase tracking-wider">
@@ -402,7 +402,6 @@ const Register: React.FC = () => {
                         <option value="" disabled>Select</option>
                         <option value="male">Male</option>
                         <option value="female">Female</option>
-                        <option value="prefer_not_to_say">Prefer not to say</option>
                       </select>
                       <svg className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
                     </div>
