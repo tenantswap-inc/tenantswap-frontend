@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
+
+
 const url = process.env.API_URL as string;
 
 export const metadata: Metadata = {
@@ -21,7 +23,6 @@ export const metadata: Metadata = {
   //   siteName: "Tenant Swap",
   //   images: [{ url: `${url}` }],
   // },
-    icons: { icon: "/ABSG-Coat-of-Arms_Master.png" },
 };
 
 

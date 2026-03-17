@@ -4,6 +4,7 @@ import React from 'react';
 
 const Home: React.FC = () => {
 
+
   return(
     <GuestLayout children={<Landing/>}/>
 

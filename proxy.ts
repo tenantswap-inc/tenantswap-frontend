@@ -7,7 +7,7 @@ export default function proxy(request: NextRequest) {
     "https://example.com",
     "https://app.example.com",
     "http://localhost:8000",
-    "*"
+    "https://api.countrystatecity.in/v1"
   ];
 
   const isAllowed = allowedOrigins.includes(origin);

@@ -64,11 +64,7 @@ export interface MatchChain {
   isDirect: boolean; // true if 2-way, false if 3+ way
 }
 
-export interface User {
-  phone: string;
-  email?: string;
-  password: string
-}
+
 
 export interface UserState {
   isLoggedIn: boolean;
@@ -133,4 +129,91 @@ export interface OAuthUser {
   email: string;
   avatar: string;
   token: string;
+}
+
+export interface TargetListing {
+  id: string;
+  userId: string;
+  status: 'DRAFT' | 'ACTIVE' | 'MATCHED' | 'CLOSED' | 'EXPIRED';
+  desiredType: string;
+  desiredCity: string;
+  maxBudget: number;
+  timeline: string;
+  currentType: string;
+  currentCity: string;
+  currentRent: number;
+  currentAvailable: boolean;
+  currentAvailableOn: string | null;
+  features: string[];
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+export interface MatchCandidate {
+  id: string;
+  fromListingId: string;
+  toListingId: string;
+  cityScore: number;
+  typeScore: number;
+  budgetScore: number;
+  timelineScore: number;
+  totalScore: number;
+  createdAt: string;
+  targetListing: TargetListing;
+}
+
+export interface UserSwapListing {
+  id: string;
+  userId: string;
+  status: 'DRAFT' | 'ACTIVE' | 'MATCHED' | 'CLOSED' | 'EXPIRED';
+  desiredType: string;
+  desiredCity: string;
+  maxBudget: number;
+  timeline: string;
+  currentType: string;
+  currentCity: string;
+  currentRent: number;
+  currentAvailable: boolean;
+  currentAvailableOn: string | null;
+  features: string[];
+  matchedInterestId: string | null;
+  matchedAt: string | null;
+  expiresAt: string | null;
+  closedAt: string | null;
+  closeReason: string | null;
+  closedByUserId: string | null;
+  autoSearchEnabled: boolean;
+  lastRecommendationCount: number;
+  autoSearchLastRunAt: string | null;
+  autoSearchMatchedAt: string | null;
+  createdAt: string;
+  matchCount: number;
+  matches: MatchCandidate[];
+}
+
+export interface User {
+  id: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  emailVerifiedAt: string | null;
+  role: 'USER' | 'ADMIN';
+  subscriptionStatus: 'ACTIVE' | 'INACTIVE' | 'EXPIRED';
+  subscriptionExpiresAt: string | null;
+  reliabilityScore: number;
+  cancellationCount: number;
+  noShowCount: number;
+  cooldownUntil: string | null;
+  blockedUntil: string | null;
+  profilePhotoUrl: string | null;
+  gender: 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY' | null;
+  occupation: string | null;
+  allowIncomingCalls: boolean;
+  oauthProvider: 'GOOGLE' | 'APPLE' | null;
+  canConnectLandlord: boolean;
+  hasLandlordContact: boolean;
+  onboardingComplete: boolean;
+  phoneVerifiedAt: string | null;
+  createdAt: string;
+  listings: UserSwapListing[];
 }

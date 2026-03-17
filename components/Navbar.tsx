@@ -5,19 +5,54 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Logo } from "./logo"
 import { useToken } from "@/shared/hooks/useToken"
+import { Client } from "@/shared/utils/ApiClient"
 
 const Navbar: React.FC = () => {
-  const pathname  = usePathname()
-  const router    = useRouter()
-  const isHome    = pathname === "/"
-  const token     = useToken()
+  const pathname = usePathname()
+  const router = useRouter()
+  const isHome = pathname === "/"
+  const token = useToken()
 
-  const isLoggedIn =  !!token
+  const isLoggedIn = token !== null
 
-console.log(isLoggedIn)
-  const handleLogout = () => {
-    localStorage.removeItem("JWT_TOKEN")
-    router.push("/")
+  console.log("Is Logged In: ", isLoggedIn)
+  const handleLogout = async () => {
+
+ try {
+     const response = await Client.post("/auth/logout", {}, {
+      "Authorization": `Bearer ${token}`
+     })
+
+    if (response.status === 200 || response.status === 201) {
+      console.log(response.data)
+      localStorage.removeItem("JWT_TOKEN")
+      router.push("/")
+      return
+    }
+
+    if (response.status === 401) {
+      console.log(response.data)
+
+      localStorage.removeItem("JWT_TOKEN")
+      router.push("/")
+      return
+    }
+
+    if (response.status === 403) {
+      console.log(response.data)
+
+      localStorage.removeItem("JWT_TOKEN")
+      router.push("/")
+      return
+    }
+
+ } catch (error) {
+   // Handle error
+   console.error("Error logging out:", error);
+
+
+ }
+
   }
 
   return (

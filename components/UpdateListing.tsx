@@ -9,19 +9,14 @@ import { z } from 'zod';
 import StepHeader from '@/components/Stepper';
 import { BinocularsIcon, DoorOpenIcon } from 'lucide-react';
 import { Client } from '@/shared/utils/ApiClient';
-import { getStates } from '@/shared/hooks/useLocation';
 import { useToken, unsetToken } from '@/shared/hooks/useToken';
+import { UserSwapListing } from '@/shared/types';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
 type PropertyType = typeof PROPERTY_TYPES[number]
 type Location = typeof LOCATIONS[number]
 type Timeline = typeof TIMELINES[number]
-interface State {
-  id: string;
-  name: string;
-  iso2: string;
-}
 
 // ─── schemas ──────────────────────────────────────────────────────────────────
 
@@ -66,35 +61,49 @@ type Step1Values = z.infer<typeof step1Schema>
 type Step2Values = z.infer<typeof step2Schema>
 type AllErrors = Partial<Record<keyof Step1Values | keyof Step2Values, string>>
 
+// ─── props ────────────────────────────────────────────────────────────────────
+
+interface UpdateEngineProps {
+  listing: UserSwapListing;
+  setListing: (listing: UserSwapListing | null) => void;
+  successMsg: string;
+  setSuccessMsg: (msg: string) => void;
+}
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+function toDateInputValue(dateStr: string | null): string {
+  if (!dateStr) return '';
+  return new Date(dateStr).toISOString().split('T')[0];
+}
+
 // ─── component ────────────────────────────────────────────────────────────────
 
-const Engine: React.FC = () => {
+const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, successMsg, setSuccessMsg }) => {
   const router = useRouter()
-   const token = useToken()
+  const token = useToken()
 
-  // ── Step 1 fields ──────────────────────────────────────────────────────────
-  const [desiredType, setDesiredType] = useState<PropertyType>('No Option')
-  const [desiredCity, setDesiredCity] = useState<Location>('No Option')
-  const [maxBudget, setMaxBudget] = useState<number>(0)
-  const [budgetDisplay, setBudgetDisplay] = useState('')
-  const [timeline, setTimeline] = useState<Timeline>('No Option')
+  // ── Step 1 fields — pre-filled ────────────────────────────────────────────
+  const [desiredType, setDesiredType] = useState<PropertyType>(listing.desiredType as PropertyType)
+  const [desiredCity, setDesiredCity] = useState<Location>(listing.desiredCity as Location)
+  const [maxBudget, setMaxBudget] = useState<number>(listing.maxBudget)
+  const [budgetDisplay, setBudgetDisplay] = useState(listing.maxBudget.toLocaleString('en-NG'))
+  const [timeline, setTimeline] = useState<Timeline>(listing.timeline as Timeline)
 
-  // ── Step 2 fields ──────────────────────────────────────────────────────────
-  const [currentType, setCurrentType] = useState<PropertyType>('No Option')
-  const [currentCity, setCurrentCity] = useState<Location>('No Option')
-  const [currentAvailable, setCurrentAvailable] = useState<boolean | null>(null)
-  const [currentAvailableOn, setCurrentAvailableOn] = useState('')
-  const [currentRent, setCurrentRent] = useState<number | null>(null)
-  const [currentRentDisplay, setCurrentRentDisplay] = useState('')
-  const [selectedFeatures, setSelectedFeatures] = useState<string[]>([])
+  // ── Step 2 fields — pre-filled ────────────────────────────────────────────
+  const [currentType, setCurrentType] = useState<PropertyType>(listing.currentType as PropertyType)
+  const [currentCity, setCurrentCity] = useState<Location>(listing.currentCity as Location)
+  const [currentAvailable, setCurrentAvailable] = useState<boolean | null>(listing.currentAvailable)
+  const [currentAvailableOn, setCurrentAvailableOn] = useState(toDateInputValue(listing.currentAvailableOn))
+  const [currentRent, setCurrentRent] = useState<number | null>(listing.currentRent)
+  const [currentRentDisplay, setCurrentRentDisplay] = useState(listing.currentRent.toLocaleString('en-NG'))
+  const [selectedFeatures, setSelectedFeatures] = useState<string[]>(listing.features)
 
   // ── UI state ───────────────────────────────────────────────────────────────
   const [step, setStep] = useState(0)
   const [errors, setErrors] = useState<AllErrors>({})
   const [alertMsg, setAlertMsg] = useState('')
   const [loading, setLoading] = useState(false)
-  const [states, setStates] = useState<State[]>([])
-  const [cities, setCities] = useState<string[]>([])
 
 
 
@@ -103,19 +112,6 @@ const Engine: React.FC = () => {
     const t = setTimeout(() => setAlertMsg(''), 4000)
     return () => clearTimeout(t)
   }, [alertMsg])
-
-     const fetchStates = async () => {
-
-      const states = await getStates();
-
-       setStates(states)
-
-      return ;
- }
-
- useEffect(() => {
-   fetchStates()
- }, [])
 
   const toggleFeature = (f: string) =>
     setSelectedFeatures(prev =>
@@ -166,12 +162,7 @@ const Engine: React.FC = () => {
     setStep(s => s - 1)
   }
 
-
-
-  console.log("states:",states)
-
-
-  // ── Submit ─────────────────────────────────────────────────────────────────
+  // ── Submit (PATCH) ─────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
     if (!token) {
@@ -194,33 +185,32 @@ const Engine: React.FC = () => {
 
     setLoading(true)
 
-    console.log(payload)
-    // return;
-
     try {
-      const response = await Client.post('/listings', payload, {
+      const response = await Client.patch(`/listings/${listing.id}`, payload, {
         Authorization: `Bearer ${token}`,
       })
 
       console.log(response.data)
 
       if (response.status === 200 || response.status === 201) {
-        router.push('/dashboard')
+        setSuccessMsg('Your swap has been updated successfully!')
+        setListing(null)
         return
       }
 
       if (response.status === 401) {
-
-      unsetToken()
-
-          router.push('/login')
-          return
-
-
+        unsetToken()
+        router.push('/login')
+        return
       }
 
       if (response.status === 403) {
-        setAlertMsg('You do not have permission to create a listing.')
+        setAlertMsg('You do not have permission to update this listing.')
+        return
+      }
+
+      if (response.status === 404) {
+        setAlertMsg('Listing not found. It may have been deleted.')
         return
       }
 
@@ -237,7 +227,7 @@ const Engine: React.FC = () => {
       setAlertMsg('Something went wrong. Please try again.')
 
     } catch (e) {
-      console.error('Listing submit error:', e)
+      console.error('Listing update error:', e)
       setAlertMsg('Unable to reach the server. Please check your connection.')
     } finally {
       setLoading(false)
@@ -260,7 +250,7 @@ const Engine: React.FC = () => {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <GuestLayout>
+    <div>
       {alertMsg && (
         <div className="fixed top-6 right-6 z-[9999] w-full max-w-md">
           <Alert
@@ -280,10 +270,28 @@ const Engine: React.FC = () => {
         </div>
       )}
 
+      {successMsg && (
+        <div className="fixed top-6 right-6 z-[9999] w-full max-w-md">
+          <Alert
+            color="success"
+            variant="solid"
+            isVisible
+            onClose={() => { setSuccessMsg(''); setListing(null); }}
+            classNames={{
+              base: 'shadow-2xl rounded-2xl border border-emerald-500/20 bg-emerald-500 animate-in fade-in slide-in-from-top-2 duration-300',
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-white font-poppins-bold">{successMsg}</span>
+            </div>
+          </Alert>
+        </div>
+      )}
+
       <div className="max-w-2xl mx-auto py-12 px-4">
         <div className="mb-10 text-center">
-          <h2 className="text-4xl font-poppins-bold text-slate-900 mb-4">Set Your Swap Engine</h2>
-          <p className="text-slate-500 font-poppins-regular">Tell us where you are and where you want to be.</p>
+          <h2 className="text-4xl font-poppins-bold text-slate-900 mb-4">Update Your Swap</h2>
+          <p className="text-slate-500 font-poppins-regular">Make changes to your existing swap request.</p>
         </div>
 
         <StepHeader current={step} />
@@ -398,17 +406,17 @@ const Engine: React.FC = () => {
                   <Err field="currentAvailable" />
                 </div>
 
-                  <div>
-                    <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Available On</label>
-                    <input
-                      type="date"
-                      disabled={!currentAvailable}
-                      value={currentAvailableOn}
-                      onChange={e => setCurrentAvailableOn(e.target.value)}
-                      className={fc('currentAvailableOn')}
-                    />
-                    <Err field="currentAvailableOn" />
-                  </div>
+                <div>
+                  <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Available On</label>
+                  <input
+                    type="date"
+                    disabled={!currentAvailable}
+                    value={currentAvailableOn}
+                    onChange={e => setCurrentAvailableOn(e.target.value)}
+                    className={fc('currentAvailableOn')}
+                  />
+                  <Err field="currentAvailableOn" />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -430,6 +438,7 @@ const Engine: React.FC = () => {
                   <Err field="currentRent" />
                 </div>
               </div>
+
               <div>
                 <label className="block text-sm font-poppins-medium text-slate-600 mb-3">
                   Home Features <span className="text-slate-400">(Select at least one)</span>
@@ -458,8 +467,8 @@ const Engine: React.FC = () => {
           {step === 2 && (
             <div className="flex-1 space-y-6">
               <div>
-                <h3 className="text-2xl font-poppins-bold text-slate-800 mb-1">Confirm Your Swap</h3>
-                <p className="text-sm text-slate-400 font-poppins-regular">Review your details before we find your match.</p>
+                <h3 className="text-2xl font-poppins-bold text-slate-800 mb-1">Confirm Your Changes</h3>
+                <p className="text-sm text-slate-400 font-poppins-regular">Review your updates before saving.</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -497,8 +506,8 @@ const Engine: React.FC = () => {
           )}
 
           {/* ── Navigation ──────────────────────────────────────────────────── */}
-          <div className={`flex mt-8 pt-6 border-t border-slate-100 ${step > 0 ? 'justify-between' : 'justify-end'}`}>
-            {step > 0 && (
+          <div className={`flex mt-8 pt-6 border-t border-slate-100 justify-between`}>
+            {step > 0 ? (
               <button
                 type="button"
                 onClick={goBack}
@@ -507,7 +516,19 @@ const Engine: React.FC = () => {
               >
                 <ChevronLeft size={18} /> Back
               </button>
-            )}
+
+            )
+              :
+              (
+                <button
+                  type="button"
+                  onClick={() => setListing(null)}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-poppins-medium hover:bg-slate-50 transition-all disabled:opacity-50"
+                >
+                  <ChevronLeft size={16} /> Back to Dashboard
+                </button>
+              )
+            }
 
             {step < 2 ? (
               <button
@@ -527,11 +548,11 @@ const Engine: React.FC = () => {
                 {loading ? (
                   <>
                     <Loader2 size={18} className="animate-spin" />
-                    Submitting…
+                    Saving…
                   </>
                 ) : (
                   <>
-                    Find My Swap Match <ChevronRight size={18} />
+                    Save Changes <ChevronRight size={18} />
                   </>
                 )}
               </button>
@@ -539,8 +560,9 @@ const Engine: React.FC = () => {
           </div>
         </div>
       </div>
-    </GuestLayout>
+    </div>
   )
 }
 
-export default Engine
+export default UpdateEngine
+
