@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PROPERTY_TYPES, LOCATIONS, TIMELINES, FEATURES } from '@/constants';
+import { PROPERTY_TYPES, TIMELINES, FEATURES } from '@/constants';
 import GuestLayout from '@/app/GuestLayout';
 import { CheckSquare, Square, X, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
 import { Alert } from '@heroui/alert';
@@ -9,40 +9,103 @@ import { z } from 'zod';
 import StepHeader from '@/components/Stepper';
 import { BinocularsIcon, DoorOpenIcon } from 'lucide-react';
 import { Client } from '@/shared/utils/ApiClient';
-import { getStates } from '@/shared/hooks/useLocation';
 import { useToken, unsetToken } from '@/shared/hooks/useToken';
+import type { Location } from '@/shared/types';
+import {
+  ALLOWED_SWAP_STATES,
+  formatSwapLocation,
+  getAllowedSwapCities,
+  getSwapAreasForCity,
+} from '@/shared/utils/swapLocationMeta';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
 type PropertyType = typeof PROPERTY_TYPES[number]
-type Location = typeof LOCATIONS[number]
 type Timeline = typeof TIMELINES[number]
-interface State {
-  id: string;
-  name: string;
-  iso2: string;
-}
 
 // ─── schemas ──────────────────────────────────────────────────────────────────
 
 const step1Schema = z.object({
   desiredType: z.enum(PROPERTY_TYPES as [string, ...string[]], 'Select a property type'),
-  desiredCity: z.enum(LOCATIONS as [string, ...string[]], 'Select a location'),
+  desiredState: z.enum(ALLOWED_SWAP_STATES, 'Select a state'),
+  desiredCity: z.string().trim().min(1, 'Select a city'),
+  desiredArea: z.string().trim().optional(),
   maxBudget: z
     .number('Budget must be a number')
     .positive('Budget must be greater than ₦0')
     .max(100_000_000, 'Budget seems too high — please double check'),
   timeline: z.enum(TIMELINES as [string, ...string[]], 'Select a timeline'),
-});
+}).superRefine((data, ctx) => {
+  if (!getAllowedSwapCities(data.desiredState).includes(data.desiredCity)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['desiredCity'],
+      message: 'Select a valid city',
+    })
+  }
+
+  const areas = getSwapAreasForCity(data.desiredState, data.desiredCity)
+
+  if (areas.length > 0) {
+    if (!data.desiredArea) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['desiredArea'],
+        message: 'Select an area',
+      })
+      return
+    }
+
+    if (!areas.includes(data.desiredArea)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['desiredArea'],
+        message: 'Select a valid area',
+      })
+    }
+  }
+})
 
 const step2Schema = z.object({
   currentType: z.enum(PROPERTY_TYPES as [string, ...string[]], 'Select a property type'),
-  currentCity: z.enum(LOCATIONS as [string, ...string[]], 'Select a location'),
+  currentState: z.enum(ALLOWED_SWAP_STATES, 'Select a state'),
+  currentCity: z.string().trim().min(1, 'Select a city'),
+  currentArea: z.string().trim().optional(),
   currentAvailable: z.boolean('Please indicate if the apartment is available'),
   currentRent: z.number('Rent must be a number').positive('Rent must be greater than ₦0'),
   currentAvailableOn: z.string().optional(),
   features: z.array(z.string()).min(1, 'Please select at least one home feature'),
 })
+  .superRefine((data, ctx) => {
+    if (!getAllowedSwapCities(data.currentState).includes(data.currentCity)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['currentCity'],
+        message: 'Select a valid city',
+      })
+    }
+
+    const areas = getSwapAreasForCity(data.currentState, data.currentCity)
+
+    if (areas.length > 0) {
+      if (!data.currentArea) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['currentArea'],
+          message: 'Select an area',
+        })
+        return
+      }
+
+      if (!areas.includes(data.currentArea)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['currentArea'],
+          message: 'Select a valid area',
+        })
+      }
+    }
+  })
   .refine(
     data => {
       if (data.currentAvailable === true) {
@@ -70,18 +133,22 @@ type AllErrors = Partial<Record<keyof Step1Values | keyof Step2Values, string>>
 
 const Engine: React.FC = () => {
   const router = useRouter()
-   const token = useToken()
+  const token = useToken()
 
   // ── Step 1 fields ──────────────────────────────────────────────────────────
   const [desiredType, setDesiredType] = useState<PropertyType>('No Option')
-  const [desiredCity, setDesiredCity] = useState<Location>('No Option')
+  const [desiredState, setDesiredState] = useState<Location>('No Option')
+  const [desiredCity, setDesiredCity] = useState('')
+  const [desiredArea, setDesiredArea] = useState('')
   const [maxBudget, setMaxBudget] = useState<number>(0)
   const [budgetDisplay, setBudgetDisplay] = useState('')
   const [timeline, setTimeline] = useState<Timeline>('No Option')
 
   // ── Step 2 fields ──────────────────────────────────────────────────────────
   const [currentType, setCurrentType] = useState<PropertyType>('No Option')
-  const [currentCity, setCurrentCity] = useState<Location>('No Option')
+  const [currentState, setCurrentState] = useState<Location>('No Option')
+  const [currentCity, setCurrentCity] = useState('')
+  const [currentArea, setCurrentArea] = useState('')
   const [currentAvailable, setCurrentAvailable] = useState<boolean | null>(null)
   const [currentAvailableOn, setCurrentAvailableOn] = useState('')
   const [currentRent, setCurrentRent] = useState<number | null>(null)
@@ -93,29 +160,17 @@ const Engine: React.FC = () => {
   const [errors, setErrors] = useState<AllErrors>({})
   const [alertMsg, setAlertMsg] = useState('')
   const [loading, setLoading] = useState(false)
-  const [states, setStates] = useState<State[]>([])
-  const [cities, setCities] = useState<string[]>([])
 
-
+  const desiredCities = getAllowedSwapCities(desiredState)
+  const currentCities = getAllowedSwapCities(currentState)
+  const desiredAreas = getSwapAreasForCity(desiredState, desiredCity)
+  const currentAreas = getSwapAreasForCity(currentState, currentCity)
 
   useEffect(() => {
     if (!alertMsg) return
     const t = setTimeout(() => setAlertMsg(''), 4000)
     return () => clearTimeout(t)
   }, [alertMsg])
-
-     const fetchStates = async () => {
-
-      const states = await getStates();
-
-       setStates(states)
-
-      return ;
- }
-
- useEffect(() => {
-   fetchStates()
- }, [])
 
   const toggleFeature = (f: string) =>
     setSelectedFeatures(prev =>
@@ -126,7 +181,7 @@ const Engine: React.FC = () => {
 
   const goNext = () => {
     if (step === 0) {
-      const result = step1Schema.safeParse({ desiredType, desiredCity, maxBudget, timeline })
+      const result = step1Schema.safeParse({ desiredType, desiredState, desiredCity, desiredArea, maxBudget, timeline })
       if (!result.success) {
         const errs: AllErrors = {}
         result.error.issues.forEach(i => { errs[i.path[0] as keyof AllErrors] = i.message })
@@ -137,11 +192,12 @@ const Engine: React.FC = () => {
       setErrors({})
       setAlertMsg('')
       setStep(1)
-
     } else if (step === 1) {
       const result = step2Schema.safeParse({
         currentType,
+        currentState,
         currentCity,
+        currentArea,
         currentAvailable,
         currentRent,
         currentAvailableOn: currentAvailableOn || undefined,
@@ -166,11 +222,6 @@ const Engine: React.FC = () => {
     setStep(s => s - 1)
   }
 
-
-
-  console.log("states:",states)
-
-
   // ── Submit ─────────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
@@ -194,15 +245,10 @@ const Engine: React.FC = () => {
 
     setLoading(true)
 
-    console.log(payload)
-    // return;
-
     try {
       const response = await Client.post('/listings', payload, {
         Authorization: `Bearer ${token}`,
       })
-
-      console.log(response.data)
 
       if (response.status === 200 || response.status === 201) {
         router.push('/dashboard')
@@ -210,13 +256,9 @@ const Engine: React.FC = () => {
       }
 
       if (response.status === 401) {
-
-      unsetToken()
-
-          router.push('/login')
-          return
-
-
+        unsetToken()
+        router.push('/login')
+        return
       }
 
       if (response.status === 403) {
@@ -235,7 +277,6 @@ const Engine: React.FC = () => {
       }
 
       setAlertMsg('Something went wrong. Please try again.')
-
     } catch (e) {
       console.error('Listing submit error:', e)
       setAlertMsg('Unable to reach the server. Please check your connection.')
@@ -290,7 +331,6 @@ const Engine: React.FC = () => {
 
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 min-h-[420px] flex flex-col">
 
-          {/* ── Step 1: Looking For ─────────────────────────────────────────── */}
           {step === 0 && (
             <div className="flex-1 space-y-6">
               <div className="flex justify-between items-center">
@@ -315,11 +355,52 @@ const Engine: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Desired State</label>
-                  <select value={desiredCity} onChange={e => setDesiredCity(e.target.value as Location)} className={fc('desiredCity')}>
+                  <select
+                    value={desiredState}
+                    onChange={e => {
+                      setDesiredState(e.target.value as Location)
+                      setDesiredCity('')
+                      setDesiredArea('')
+                    }}
+                    className={fc('desiredState')}
+                  >
                     <option value="No Option" disabled>Select state…</option>
-                    {LOCATIONS.filter(l => l !== 'No Option').map(l => <option key={l} value={l}>{l}</option>)}
+                    {ALLOWED_SWAP_STATES.map(state => <option key={state} value={state}>{state}</option>)}
+                  </select>
+                  <Err field="desiredState" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Desired City</label>
+                  <select
+                    value={desiredCity}
+                    onChange={e => {
+                      setDesiredCity(e.target.value)
+                      setDesiredArea('')
+                    }}
+                    disabled={desiredState === 'No Option'}
+                    className={fc('desiredCity')}
+                  >
+                    <option value="" disabled>{desiredState === 'No Option' ? 'Select state first…' : 'Select city…'}</option>
+                    {desiredCities.map(city => <option key={city} value={city}>{city}</option>)}
                   </select>
                   <Err field="desiredCity" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Desired Area / Region</label>
+                  <select
+                    value={desiredArea}
+                    onChange={e => setDesiredArea(e.target.value)}
+                    disabled={!desiredCity || desiredAreas.length === 0}
+                    className={fc('desiredArea')}
+                  >
+                    <option value="" disabled>
+                      {!desiredCity ? 'Select city first…' : desiredAreas.length === 0 ? 'No areas configured yet' : 'Select area…'}
+                    </option>
+                    {desiredAreas.map(area => <option key={area} value={area}>{area}</option>)}
+                  </select>
+                  <Err field="desiredArea" />
                 </div>
 
                 <div>
@@ -352,7 +433,6 @@ const Engine: React.FC = () => {
             </div>
           )}
 
-          {/* ── Step 2: Leaving From ────────────────────────────────────────── */}
           {step === 1 && (
             <div className="flex-1 space-y-6">
               <div className="flex justify-between items-center">
@@ -377,11 +457,52 @@ const Engine: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Current State</label>
-                  <select value={currentCity} onChange={e => setCurrentCity(e.target.value as Location)} className={fc('currentCity')}>
+                  <select
+                    value={currentState}
+                    onChange={e => {
+                      setCurrentState(e.target.value as Location)
+                      setCurrentCity('')
+                      setCurrentArea('')
+                    }}
+                    className={fc('currentState')}
+                  >
                     <option value="No Option" disabled>Select state…</option>
-                    {LOCATIONS.filter(l => l !== 'No Option').map(l => <option key={l} value={l}>{l}</option>)}
+                    {ALLOWED_SWAP_STATES.map(state => <option key={state} value={state}>{state}</option>)}
+                  </select>
+                  <Err field="currentState" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Current City</label>
+                  <select
+                    value={currentCity}
+                    onChange={e => {
+                      setCurrentCity(e.target.value)
+                      setCurrentArea('')
+                    }}
+                    disabled={currentState === 'No Option'}
+                    className={fc('currentCity')}
+                  >
+                    <option value="" disabled>{currentState === 'No Option' ? 'Select state first…' : 'Select city…'}</option>
+                    {currentCities.map(city => <option key={city} value={city}>{city}</option>)}
                   </select>
                   <Err field="currentCity" />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Current Area / Region</label>
+                  <select
+                    value={currentArea}
+                    onChange={e => setCurrentArea(e.target.value)}
+                    disabled={!currentCity || currentAreas.length === 0}
+                    className={fc('currentArea')}
+                  >
+                    <option value="" disabled>
+                      {!currentCity ? 'Select city first…' : currentAreas.length === 0 ? 'No areas configured yet' : 'Select area…'}
+                    </option>
+                    {currentAreas.map(area => <option key={area} value={area}>{area}</option>)}
+                  </select>
+                  <Err field="currentArea" />
                 </div>
 
                 <div>
@@ -392,23 +513,23 @@ const Engine: React.FC = () => {
                     className={fc('currentAvailable')}
                   >
                     <option value="No Option" disabled>Select…</option>
-                    <option value="true">Yes, it's available</option>
+                    <option value="true">Yes, it is available</option>
                     <option value="false">No, not yet</option>
                   </select>
                   <Err field="currentAvailable" />
                 </div>
 
-                  <div>
-                    <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Available On</label>
-                    <input
-                      type="date"
-                      disabled={!currentAvailable}
-                      value={currentAvailableOn}
-                      onChange={e => setCurrentAvailableOn(e.target.value)}
-                      className={fc('currentAvailableOn')}
-                    />
-                    <Err field="currentAvailableOn" />
-                  </div>
+                <div>
+                  <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Available On</label>
+                  <input
+                    type="date"
+                    disabled={!currentAvailable}
+                    value={currentAvailableOn}
+                    onChange={e => setCurrentAvailableOn(e.target.value)}
+                    className={fc('currentAvailableOn')}
+                  />
+                  <Err field="currentAvailableOn" />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -430,6 +551,7 @@ const Engine: React.FC = () => {
                   <Err field="currentRent" />
                 </div>
               </div>
+
               <div>
                 <label className="block text-sm font-poppins-medium text-slate-600 mb-3">
                   Home Features <span className="text-slate-400">(Select at least one)</span>
@@ -454,7 +576,6 @@ const Engine: React.FC = () => {
             </div>
           )}
 
-          {/* ── Step 3: Confirm ─────────────────────────────────────────────── */}
           {step === 2 && (
             <div className="flex-1 space-y-6">
               <div>
@@ -466,7 +587,7 @@ const Engine: React.FC = () => {
                 <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
                   <p className="text-[10px] font-poppins-bold text-emerald-600 uppercase tracking-widest mb-3">Looking For</p>
                   <p className="font-poppins-bold text-slate-800">{desiredType}</p>
-                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{desiredCity}</p>
+                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(desiredState, desiredCity, desiredArea)}</p>
                   <p className="text-slate-500 font-poppins-regular text-sm">₦{maxBudget.toLocaleString()} / yr</p>
                   <p className="text-slate-500 font-poppins-regular text-sm">{timeline}</p>
                 </div>
@@ -474,7 +595,7 @@ const Engine: React.FC = () => {
                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5">
                   <p className="text-[10px] font-poppins-bold text-slate-500 uppercase tracking-widest mb-3">Leaving From</p>
                   <p className="font-poppins-bold text-slate-800">{currentType}</p>
-                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{currentCity}</p>
+                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(currentState, currentCity, currentArea)}</p>
                   <p className="text-slate-500 font-poppins-regular text-sm">
                     {currentAvailable
                       ? `Available ${currentAvailableOn ? new Date(currentAvailableOn).toLocaleDateString('en-NG', { dateStyle: 'medium' }) : '—'}`
@@ -496,14 +617,13 @@ const Engine: React.FC = () => {
             </div>
           )}
 
-          {/* ── Navigation ──────────────────────────────────────────────────── */}
           <div className={`flex mt-8 pt-6 border-t border-slate-100 ${step > 0 ? 'justify-between' : 'justify-end'}`}>
             {step > 0 && (
               <button
                 type="button"
                 onClick={goBack}
                 disabled={loading}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-poppins-medium hover:bg-slate-50 transition-all disabled:opacity-50"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-poppins-medium cursor-pointer transition-all duration-300 ease-out hover:bg-slate-50 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
               >
                 <ChevronLeft size={18} /> Back
               </button>
@@ -513,7 +633,7 @@ const Engine: React.FC = () => {
               <button
                 type="button"
                 onClick={goNext}
-                className="flex items-center gap-2 bg-emerald-600 text-white px-8 py-3 rounded-xl font-poppins-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20"
+                className="flex items-center gap-2 bg-emerald-600 text-white px-8 py-3 rounded-xl font-poppins-bold cursor-pointer transition-all duration-300 ease-out shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-emerald-600/25 active:scale-[0.98]"
               >
                 Next <ChevronRight size={18} />
               </button>
@@ -522,7 +642,7 @@ const Engine: React.FC = () => {
                 type="button"
                 onClick={handleSubmit}
                 disabled={loading}
-                className="flex items-center gap-2 bg-emerald-600 text-white px-8 py-3 rounded-xl font-poppins-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 bg-emerald-600 text-white px-8 py-3 rounded-xl font-poppins-bold cursor-pointer transition-all duration-300 ease-out shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-emerald-600/25 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-lg"
               >
                 {loading ? (
                   <>
