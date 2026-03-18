@@ -144,21 +144,32 @@ function toDateInputValue(dateStr: string | null): string {
 const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, successMsg, setSuccessMsg }) => {
   const router = useRouter()
   const token = useToken()
-  const desiredLocation = parseStoredSwapLocation(listing.desiredCity)
-  const currentLocation = parseStoredSwapLocation(listing.currentCity)
+  const desiredLocation = parseStoredSwapLocation(
+    listing.desiredState && listing.desiredCity
+      ? [listing.desiredArea, listing.desiredCity, listing.desiredState].filter(Boolean).join(', ')
+      : listing.desiredCity
+  )
+  const currentLocation = parseStoredSwapLocation(
+    listing.currentState && listing.currentCity
+      ? [listing.currentArea, listing.currentCity, listing.currentState].filter(Boolean).join(', ')
+      : listing.currentCity
+  )
+
 
   const [desiredType, setDesiredType] = useState<PropertyType>(listing.desiredType as PropertyType)
-  const [desiredState, setDesiredState] = useState<Location>(desiredLocation.state)
-  const [desiredCity, setDesiredCity] = useState(desiredLocation.city)
-  const [desiredArea, setDesiredArea] = useState(desiredLocation.area)
+  const [desiredState, setDesiredState] = useState<Location>((listing.desiredState as Location) || desiredLocation.state)
+  const [desiredCity, setDesiredCity] = useState(listing.desiredCity || desiredLocation.city)
+  const [desiredArea, setDesiredArea] = useState(listing.desiredArea || desiredLocation.area)
+
   const [maxBudget, setMaxBudget] = useState<number>(listing.maxBudget)
   const [budgetDisplay, setBudgetDisplay] = useState(listing.maxBudget.toLocaleString('en-NG'))
   const [timeline, setTimeline] = useState<Timeline>(listing.timeline as Timeline)
 
   const [currentType, setCurrentType] = useState<PropertyType>(listing.currentType as PropertyType)
-  const [currentState, setCurrentState] = useState<Location>(currentLocation.state)
-  const [currentCity, setCurrentCity] = useState(currentLocation.city)
-  const [currentArea, setCurrentArea] = useState(currentLocation.area)
+  const [currentState, setCurrentState] = useState<Location>((listing.currentState as Location) || currentLocation.state)
+  const [currentCity, setCurrentCity] = useState(listing.currentCity || currentLocation.city)
+  const [currentArea, setCurrentArea] = useState(listing.currentArea || currentLocation.area)
+
   const [currentAvailable, setCurrentAvailable] = useState<boolean | null>(listing.currentAvailable)
   const [currentAvailableOn, setCurrentAvailableOn] = useState(toDateInputValue(listing.currentAvailableOn))
   const [currentRent, setCurrentRent] = useState<number | null>(listing.currentRent)
@@ -238,16 +249,21 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
 
     const payload = {
       desiredType,
+      desiredState,
       desiredCity,
+      desiredArea: desiredArea || null,
       maxBudget,
       timeline,
       currentRent,
       currentType,
+      currentState,
       currentCity,
+      currentArea: currentArea || null,
       currentAvailable,
       currentAvailableOn: currentAvailable ? new Date(currentAvailableOn).toISOString() : null,
       features: selectedFeatures,
     }
+
 
     setLoading(true)
 

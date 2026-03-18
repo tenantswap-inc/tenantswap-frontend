@@ -33,6 +33,7 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
 
   // ── reverification banner ──────────────────────────────────────────────────
   const [showReverify, setShowReverify] = useState(false)
@@ -73,6 +74,17 @@ const Login: React.FC = () => {
     router.push("/resend-verification")
   }
 
+  useEffect(() => {
+    const token = localStorage.getItem('JWT_TOKEN')
+
+    if (token) {
+      router.replace('/dashboard')
+      return
+    }
+
+    setAuthChecked(true)
+  }, [router])
+
   // ── auto-dismiss error alert ───────────────────────────────────────────────
   useEffect(() => {
     if (!alertMsg) return
@@ -97,7 +109,7 @@ const Login: React.FC = () => {
         }
 
         localStorage.setItem("JWT_TOKEN", token)
-        router.push("/dashboard")
+        router.replace("/dashboard")
         return
       }
 
@@ -187,6 +199,8 @@ const Login: React.FC = () => {
     }`
 
   // ── render ─────────────────────────────────────────────────────────────────
+  if (!authChecked) return null
+
   return (
     <GuestLayout>
 

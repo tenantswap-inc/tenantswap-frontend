@@ -48,79 +48,56 @@ const STATUS_COLORS: Record<UserSwapListing['status'], string> = {
 // ─── match card ───────────────────────────────────────────────────────────────
 
 function MatchCard({ match }: { match: MatchCandidate }) {
-  const { targetListing: t, totalScore, cityScore, typeScore, budgetScore, timelineScore } = match;
+  const { targetListing: t, totalScore } = match;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md transition-all">
-
-      {/* Score badge */}
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex items-center gap-1">
+    <div className="group h-full bg-white border border-slate-200 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 w-fit">
           <TrendingUp size={14} className={scoreColor(totalScore)} />
           <span className={`text-sm font-poppins-bold ${scoreColor(totalScore)}`}>
             {totalScore}% match
           </span>
         </div>
-        <span className={`text-xs font-poppins-bold px-2 py-1 rounded-full ${STATUS_COLORS[t.status]}`}>
-          {t.status}
-        </span>
+
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-emerald-700 shadow-sm opacity-0 translate-x-2 pointer-events-none transition-all duration-300 ease-out group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-x-0 group-focus-within:pointer-events-auto hover:bg-emerald-50"
+        >
+          Explore <ArrowRight size={13} className="transition-transform duration-300 group-hover:translate-x-0.5" />
+        </button>
       </div>
 
-      {/* Property info */}
-      <div className="flex flex-col gap-1 mb-4">
-        <p className="font-poppins-bold text-slate-800 text-sm flex items-center gap-1">
-          <MapPin size={13} className="text-emerald-500" />
-          {t.currentType} in {t.currentCity}
+      <div className="space-y-2">
+        <p className="font-poppins-bold text-slate-800 text-sm flex items-center gap-1.5">
+          <MapPin size={13} className="text-emerald-500 shrink-0" />
+          <span>{t.currentType} in {t.currentCity}</span>
         </p>
         <p className="text-xs text-slate-500 font-poppins-regular">
           Rent: ₦{t.currentRent.toLocaleString()} / yr
         </p>
         {t.currentAvailable && t.currentAvailableOn && (
           <p className="text-xs text-emerald-600 font-poppins-medium flex items-center gap-1">
-            <BadgeCheck size={11} /> Available {formatDate(t.currentAvailableOn)}
+            <BadgeCheck size={11} className="shrink-0" /> Available {formatDate(t.currentAvailableOn)}
           </p>
         )}
       </div>
 
-      {/* Looking for */}
-      <div className="bg-slate-50 rounded-xl p-3 mb-4">
-        <p className="text-[10px] text-slate-400 font-poppins-bold uppercase tracking-widest mb-1">
-          They want
-        </p>
-        <p className="text-sm font-poppins-bold text-slate-700">
-          {t.desiredType} · {t.desiredCity}
-        </p>
-        <p className="text-xs text-slate-400 font-poppins-regular mt-0.5">
-          Budget: ₦{t.maxBudget.toLocaleString()} · {t.timeline}
-        </p>
-      </div>
-
-      {/* Score breakdown */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        {[
-          { label: 'City', score: cityScore },
-          { label: 'Type', score: typeScore },
-          { label: 'Budget', score: budgetScore },
-          { label: 'Timeline', score: timelineScore },
-        ].map(({ label, score }) => (
-          <div key={label} className="bg-slate-50 rounded-lg px-3 py-2">
-            <p className="text-[10px] text-slate-400 font-poppins-medium uppercase">{label}</p>
-            <p className={`text-sm font-poppins-bold ${scoreColor(score)}`}>{score}%</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Features */}
       {t.features.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {t.features.map((f) => (
-            <span
-              key={f}
-              className="text-[10px] bg-emerald-50 border border-emerald-100 text-emerald-600 px-2 py-0.5 rounded-md font-poppins-medium"
-            >
-              {f}
-            </span>
-          ))}
+        <div className="mt-4 border-t border-slate-100 pt-4">
+          <p className="text-[10px] text-slate-400 font-poppins-bold uppercase tracking-widest mb-2">
+            Features
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {t.features.map((f) => (
+              <span
+                key={f}
+                className="text-[10px] bg-emerald-50 border border-emerald-100 text-emerald-600 px-2 py-0.5 rounded-md font-poppins-medium"
+              >
+                {f}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -142,7 +119,7 @@ const Dashboard: React.FC = () => {
   const readCurrentUser = async () => {
     try {
       const token = localStorage.getItem('JWT_TOKEN');
-      if (!token) { router.push('/login'); return; }
+      if (!token) { router.replace('/login'); return; }
 
       const response = await Client.get('/users/me', {}, {
         Authorization: `Bearer ${token}`,
@@ -154,10 +131,10 @@ const Dashboard: React.FC = () => {
       }
 
       localStorage.removeItem('JWT_TOKEN');
-      router.push('/login');
+      router.replace('/login');
     } catch {
       localStorage.removeItem('JWT_TOKEN');
-      router.push('/login');
+      router.replace('/login');
     }
   };
 
@@ -194,7 +171,7 @@ router.refresh()
           </div>
           <h2 className="text-3xl font-poppins-bold mb-4">Setup Your Swap Engine</h2>
           <p className="text-slate-500 font-poppins-regular mb-8 max-w-md mx-auto">
-            We need to know what you're leaving and what you're looking for to run the home matching algorithm.
+            We need to know what you are leaving and what you are looking for to run the home matching algorithm.
           </p>
           <Link
             href="/engine"
@@ -251,9 +228,6 @@ router.refresh()
       Your Swap Dashboard
     </h2>
     <div className="flex items-center gap-3 mt-2">
-      <span className={`inline-block text-xs font-poppins-bold px-3 py-1 rounded-full ${STATUS_COLORS[activeListing.status]}`}>
-        {activeListing.status}
-      </span>
       {activeListing.expiresAt && (
         <span className="text-sm text-slate-600 font-poppins-medium flex items-center gap-1">
           <Clock4 size={15} />
@@ -279,11 +253,6 @@ router.refresh()
           <span className={`text-xs font-poppins-bold px-2 py-1 rounded-full ${STATUS_COLORS[listing.status]}`}>
             {listing.status}
           </span>
-          {listing.id === activeListing.id && (
-            <span className="text-xs bg-emerald-600 text-white px-2 py-1 rounded-full font-poppins-bold">
-              Active
-            </span>
-          )}
         </div>
         <div className="flex items-center gap-3">
           {listing.expiresAt && (
@@ -310,7 +279,7 @@ router.refresh()
           </p>
           {listing.currentAvailable ? (
             <p className="text-xs text-emerald-600 font-poppins-medium mt-0.5 flex items-center gap-1">
-              <BadgeCheck size={11} /> Available {formatDate(listing.currentAvailableOn)}
+              <BadgeCheck size={11} className="shrink-0" /> Available {formatDate(listing.currentAvailableOn)}
             </p>
           ) : (
             <p className="text-xs text-slate-400 font-poppins-regular mt-0.5">Not yet available</p>
@@ -328,7 +297,7 @@ router.refresh()
             Budget: ₦{listing.maxBudget.toLocaleString()} / yr
           </p>
           <p className="text-xs text-slate-500 font-poppins-regular mt-0.5 flex items-center gap-1">
-            <CalendarClock size={11} /> {listing.timeline}
+            <CalendarClock size={11} className="shrink-0" /> {listing.timeline}
           </p>
         </div>
 
@@ -373,7 +342,7 @@ router.refresh()
             </div>
             <p className="text-slate-400 font-poppins-bold text-sm">No matches yet</p>
             <p className="text-slate-300 font-poppins-regular text-xs mt-1">
-              We'll notify you when someone matches this listing.
+              We will notify you when someone matches this listing.
             </p>
           </div>
         )}

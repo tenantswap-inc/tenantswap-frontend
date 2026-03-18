@@ -75,6 +75,7 @@ const Register: React.FC = () => {
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [alertMsg, setAlertMsg] = useState("")
+  const [authChecked, setAuthChecked] = useState(false)
 
   useEffect(() => {
     if (localStorage.getItem("OAuthUser")) {
@@ -98,6 +99,17 @@ const Register: React.FC = () => {
     }
   }, [setForm, setOauthProvider])
 
+
+  useEffect(() => {
+    const token = localStorage.getItem('JWT_TOKEN')
+
+    if (token) {
+      router.replace('/dashboard')
+      return
+    }
+
+    setAuthChecked(true)
+  }, [router])
 
   useEffect(() => {
     if (!alertMsg) return
@@ -177,7 +189,7 @@ const Register: React.FC = () => {
           console.log({ token })
           localStorage.setItem("JWT_TOKEN", token)
           setAlertMsg("Registration successful. Redirectiog to Dashboard.")
-          router.push("/dashboard")
+          router.replace("/dashboard")
         }
 
       }
@@ -195,6 +207,8 @@ const Register: React.FC = () => {
       ? "border-red-400 bg-red-50/40 focus:border-red-400"
       : "border-slate-100 focus:border-emerald-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(52,211,153,0.1)]"
     }`
+
+  if (!authChecked) return null
 
   if (showOnboarding) {
     return (

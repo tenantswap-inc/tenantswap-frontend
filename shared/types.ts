@@ -93,13 +93,17 @@ export interface SwapListing {
 
   // What the user is looking for
   desiredType: string
+  desiredState: string
   desiredCity: string
+  desiredArea: string | null
   maxBudget: number
   timeline: string
 
   // What the user is leaving
 currentType: string
+  currentState: string
   currentCity: string
+  currentArea: string | null
   currentRent: number           // ← add
   currentAvailable: boolean     // ← was currentAvailiable (typo fixed)
   currentAvailableOn: string | null  // ← add
@@ -136,11 +140,15 @@ export interface TargetListing {
   userId: string;
   status: 'DRAFT' | 'ACTIVE' | 'MATCHED' | 'CLOSED' | 'EXPIRED';
   desiredType: string;
+  desiredState: string;
   desiredCity: string;
+  desiredArea: string | null;
   maxBudget: number;
   timeline: string;
   currentType: string;
+  currentState: string;
   currentCity: string;
+  currentArea: string | null;
   currentRent: number;
   currentAvailable: boolean;
   currentAvailableOn: string | null;
@@ -167,11 +175,15 @@ export interface UserSwapListing {
   userId: string;
   status: 'DRAFT' | 'ACTIVE' | 'MATCHED' | 'CLOSED' | 'EXPIRED';
   desiredType: string;
+  desiredState: string;
   desiredCity: string;
+  desiredArea: string | null;
   maxBudget: number;
   timeline: string;
   currentType: string;
+  currentState: string;
   currentCity: string;
+  currentArea: string | null;
   currentRent: number;
   currentAvailable: boolean;
   currentAvailableOn: string | null;

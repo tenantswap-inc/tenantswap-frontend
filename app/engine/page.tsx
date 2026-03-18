@@ -232,16 +232,21 @@ const Engine: React.FC = () => {
 
     const payload = {
       desiredType,
+      desiredState,
       desiredCity,
+      desiredArea: desiredArea || null,
       maxBudget,
       timeline,
       currentRent,
       currentType,
+      currentState,
       currentCity,
+      currentArea: currentArea || null,
       currentAvailable,
       currentAvailableOn: currentAvailable ? new Date(currentAvailableOn).toISOString() : null,
       features: selectedFeatures,
     }
+
 
     setLoading(true)
 

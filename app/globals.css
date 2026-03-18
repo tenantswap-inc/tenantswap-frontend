@@ -5,43 +5,43 @@
 
 
 @font-face {
-  font-family: 'Poppins-Black';
+  font-family: 'Poppins';
   font-style: normal;
   font-weight: 900;
-  font-display: optional;
+  font-display: swap;
   src: url('/fonts/poppins/Poppins-Black.ttf') format('truetype');
 }
 
 @font-face {
-  font-family: 'Poppins-Bold';
+  font-family: 'Poppins';
   font-style: normal;
   font-weight: 700;
-  font-display: optional;
+  font-display: swap;
   src: url('/fonts/poppins/Poppins-Bold.ttf') format('truetype');
 }
 
 @font-face {
-  font-family: 'Poppins-Medium';
+  font-family: 'Poppins';
   font-style: normal;
   font-weight: 500;
-  font-display: optional;
+  font-display: swap;
   src: url('/fonts/poppins/Poppins-Medium.ttf') format('truetype');
 }
 
 @font-face {
-  font-family: 'Poppins-Regular';
+  font-family: 'Poppins';
   font-style: normal;
   font-weight: 400;
-  font-display: optional;
+  font-display: swap;
   src: url('/fonts/poppins/Poppins-Regular.ttf') format('truetype');
 }
 
 @theme {
   --font-inter: 'Inter', sans-serif;
-  --font-poppins-medium: 'Poppins-Medium', sans-serif;
-  --font-poppins-black: 'Poppins-Black', sans-serif;
-  --font-poppins-bold: 'Poppins-Bold', sans-serif;
-    --font-poppins-regular: 'Poppins-Regular', sans-serif;
+  --font-poppins-medium: 'Poppins', sans-serif;
+  --font-poppins-black: 'Poppins', sans-serif;
+  --font-poppins-bold: 'Poppins', sans-serif;
+  --font-poppins-regular: 'Poppins', sans-serif;
   --color-primary-green:#059669;
   --color-lime-green: #81c14b;
   --color-lime-green-light: #cafcac;
@@ -50,6 +50,26 @@
   --color-navy-blue:#1A2B3C;
   --color-soft-gray: #F5F7FA;
 --color-steel-blue:#4682B4;
+}
+
+.font-poppins-regular {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 400;
+}
+
+.font-poppins-medium {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+}
+
+.font-poppins-bold {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+}
+
+.font-poppins-black {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 900;
 }
 
 @theme inline {
@@ -137,6 +157,7 @@
     @apply bg-background text-foreground;
     @apply font-poppins-regular;
   }
+
 }
 
 .dark {
@@ -469,4 +490,20 @@
   --tt-color-highlight-brown-contrast: rgba(184, 101, 69, 0.25);
   --tt-color-highlight-orange-contrast: rgba(233, 126, 37, 0.2);
   --tt-color-highlight-pink-contrast: rgba(220, 76, 145, 0.22);
+}
+
+button:not(:disabled),
+input[type='button']:not(:disabled),
+input[type='submit']:not(:disabled),
+input[type='reset']:not(:disabled),
+[role='button']:not([aria-disabled='true']) {
+  cursor: pointer !important;
+}
+
+button:disabled,
+input[type='button']:disabled,
+input[type='submit']:disabled,
+input[type='reset']:disabled,
+[role='button'][aria-disabled='true'] {
+  cursor: not-allowed !important;
 }
