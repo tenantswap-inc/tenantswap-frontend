@@ -143,7 +143,7 @@ function toDateInputValue(dateStr: string | null): string {
 
 const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, successMsg, setSuccessMsg }) => {
   const router = useRouter()
-  const token = useToken()
+  const { token } = useToken()
   const desiredLocation = parseStoredSwapLocation(
     listing.desiredState && listing.desiredCity
       ? [listing.desiredArea, listing.desiredCity, listing.desiredState].filter(Boolean).join(', ')
