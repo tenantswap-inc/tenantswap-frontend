@@ -277,6 +277,11 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
         setListing(null)
         return
       }
+      if (response.status === 204) {
+        setSuccessMsg(response.data.message)
+        setListing(null)
+        return
+      }
 
       if (response.status === 401) {
         unsetToken()

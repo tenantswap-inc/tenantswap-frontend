@@ -78,6 +78,10 @@ const Dashboard: React.FC = () => {
         setSelectedMatch(null)
         setSuccessMsg('Connection request sent!')
       }
+      if (response.status === 204) {
+        setSelectedMatch(null)
+        setSuccessMsg(response.data.message)
+      }
       // in handleConnect
       if (response.status === 403) {
         setErrorMsg('You do not have permission to connect with this listing.')
