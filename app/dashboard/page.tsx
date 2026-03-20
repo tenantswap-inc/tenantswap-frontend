@@ -511,6 +511,7 @@ const Dashboard: React.FC = () => {
                         key={match.id}
                         match={match}
                         relatedRequest={outgoingRequestByListingId.get(match.targetListing.id)}
+                        onRequestAgain={handleConnect}
                         setSelectedMatch={setSelectedMatch}
                       />
                     ))}

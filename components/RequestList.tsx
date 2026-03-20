@@ -1,6 +1,6 @@
 'use client'
 import React from 'react'
-import { MapPin, Clock4, Home, Phone, User, BadgeCheck } from 'lucide-react'
+import { MapPin, Clock4, Home, User, BadgeCheck } from 'lucide-react'
 import { ListingInterestStatus, UserSwapRequest } from '@/shared/types'
 
 function formatDate(dateStr: string) {
@@ -79,14 +79,7 @@ function RequestCard({ request }: { request: UserSwapRequest }) {
           <Clock4 size={11} />
           {timeRemaining(request.expiresAt)}
         </div>
-        <span className="text-[10px] text-slate-300 font-poppins-regular">{formatDate(request.createdAt)}</span>
-        {request.owner.phone && (
-          <div className="flex items-center gap-1">
-            <Phone size={10} className="text-slate-300" />
-            <span className="text-[10px] text-slate-400 font-poppins-regular">{request.owner.phone}</span>
-          </div>
-        )}
-      </div>
+        <span className="text-[10px] text-slate-300 font-poppins-regular">{formatDate(request.createdAt)}</span>      </div>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 import React from 'react'
-import { BadgeCheck, Clock4, Home, MapPin, Phone, User } from 'lucide-react'
+import { BadgeCheck, Clock4, Home, MapPin, User } from 'lucide-react'
 import { IncomingInterestListing, ListingInterestStatus } from '@/shared/types'
 
 const STATUS_CONFIG: Record<ListingInterestStatus, { label: string; bg: string; text: string; dot: string }> = {
@@ -95,13 +95,7 @@ export default function IncomingRequestList({
                         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-poppins-bold ${status.bg} ${status.text}`}>
                           <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
                           {status.label}
-                        </span>
-                        {request.requester.phone && (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-poppins-medium text-slate-400">
-                            <Phone size={11} /> {request.requester.phone}
-                          </span>
-                        )}
-                      </div>
+                        </span>                      </div>
                       <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
                         <span className="inline-flex items-center gap-1">
                           <MapPin size={11} className="text-emerald-500" /> Request sent {formatDate(request.createdAt)}
