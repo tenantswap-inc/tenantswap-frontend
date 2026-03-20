@@ -58,9 +58,11 @@ export interface SwapRequest {
   onboardingComplete: boolean,
 }
 
+export type ListingInterestStatus = 'REQUESTED' | 'CONTACT_APPROVED' | 'DECLINED' | 'RELEASED' | 'EXPIRED' | 'CONFIRMED_RENTER'
+
 export interface UserSwapRequest {
   interestId: string
-  status: 'REQUESTED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED'
+  status: ListingInterestStatus
   createdAt: string
   expiresAt: string
   listing: {
@@ -78,6 +80,31 @@ export interface UserSwapRequest {
     phone: string | null
   }
   requesterListingId: string
+}
+
+export interface IncomingInterestRequest {
+  interestId: string
+  status: ListingInterestStatus
+  createdAt: string
+  expiresAt: string | null
+  requester: {
+    userId: string
+    fullName: string
+    phone: string | null
+    listingId: string
+  }
+}
+
+export interface IncomingInterestListing {
+  listingId: string
+  listingStatus: string
+  currentState: string
+  currentCity: string
+  currentArea: string | null
+  currentType: string
+  currentRent: number
+  openRequests: number
+  requests: IncomingInterestRequest[]
 }
 
 

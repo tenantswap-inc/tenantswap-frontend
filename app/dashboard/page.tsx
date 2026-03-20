@@ -1,11 +1,17 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { UserSwapListing, MatchCandidate, User, UserSwapRequest } from '@/shared/types';
+import {
+  IncomingInterestListing,
+  MatchCandidate,
+  User,
+  UserSwapListing,
+  UserSwapRequest,
+} from '@/shared/types';
 import {
   FilePlus, Edit2, Link2Off, ArrowRight,
   ShieldCheck, FileText, Home, CalendarClock,
-  BadgeCheck, Clock4, TrendingUp, MapPin,
+  BadgeCheck, Clock4,
   Bell,
   Settings,
 } from 'lucide-react';
@@ -16,10 +22,9 @@ import UpdateEngine from '@/components/UpdateListing';
 import { Alert } from '@heroui/alert';
 import MatchModal from '@/components/MatchingModal';
 import MatchCard from '@/components/MatchCard';
-import { Button, ButtonGroup } from "@heroui/react";
+import { Button, ButtonGroup } from '@heroui/react';
 import RequestListModal from '@/components/RequestListModal';
-
-// ─── helpers ──────────────────────────────────────────────────────────────────
+import { connectLiveUpdates } from '@/shared/utils/liveUpdates';
 
 function getActiveListing(listings: UserSwapListing[]): UserSwapListing | null {
   if (!listings?.length) return null;
@@ -36,8 +41,6 @@ function formatDate(dateStr: string | Date | null): string {
   return new Date(dateStr).toLocaleDateString('en-NG', { dateStyle: 'medium' });
 }
 
-
-
 const STATUS_COLORS: Record<UserSwapListing['status'], string> = {
   DRAFT: 'bg-slate-100 text-slate-500',
   ACTIVE: 'bg-emerald-100 text-emerald-700',
@@ -46,64 +49,49 @@ const STATUS_COLORS: Record<UserSwapListing['status'], string> = {
   EXPIRED: 'bg-amber-100 text-amber-700',
 };
 
-
-
-
-// ─── component ────────────────────────────────────────────────────────────────
-
 const Dashboard: React.FC = () => {
-  // ── UI state ───────────────────────────────────────────────────────────────
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [updateListing, setUpdateListing] = useState<UserSwapListing | null>(null);
-  const [selectedMatch, setSelectedMatch] = useState<MatchCandidate | null>(null)
-  const [errorMsg, setErrorMsg] = useState('')
-  const [connecting, setConnecting] = useState(false)
-  const [successMsg, setSuccessMsg] = useState('')
-  const [requests, setRequests] = useState<UserSwapRequest[]>([])
-  const [openRequestList, setOpenRequestList] = useState(false)
-  const [totalRequests, setTotalRequests] = useState(0)
+  const [selectedMatch, setSelectedMatch] = useState<MatchCandidate | null>(null);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [connecting, setConnecting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [outgoingRequests, setOutgoingRequests] = useState<UserSwapRequest[]>([]);
+  const [incomingListings, setIncomingListings] = useState<IncomingInterestListing[]>([]);
+  const [openRequestList, setOpenRequestList] = useState(false);
+  const [outgoingTotalRequests, setOutgoingTotalRequests] = useState(0);
+  const [incomingOpenRequests, setIncomingOpenRequests] = useState(0);
+  const [requestTab, setRequestTab] = useState<'incoming' | 'outgoing'>('incoming');
+  const [processingInterestId, setProcessingInterestId] = useState<string | null>(null);
+  const previousIncomingOpenRequests = useRef(0);
   const router = useRouter();
 
-  const handleConnect = async (targetListingId: string) => {
-    setConnecting(true)
-    try {
-      const token = localStorage.getItem('JWT_TOKEN')
-      const response = await Client.post(
-        `/matching/interests/${targetListingId}/request`,
-        {},
-        { Authorization: `Bearer ${token}` }
-      )
-      if (response.status === 200 || response.status === 201) {
-        setSelectedMatch(null)
-        setSuccessMsg('Connection request sent!')
-      }
-      if (response.status === 204) {
-        setSelectedMatch(null)
-        setSuccessMsg(response.data.message)
-      }
-      // in handleConnect
-      if (response.status === 403) {
-        setErrorMsg('You do not have permission to connect with this listing.')
-        return
-      }
-      if (response.status === 429) {
-        setErrorMsg('Too many requests. Please wait a moment and try again.')
-        return
-      }
-      setErrorMsg('Something went wrong. Please try again.')
-    } finally {
-      setConnecting(false)
+  const pendingIncomingListings = useMemo(
+    () =>
+      incomingListings
+        .map((listing) => ({
+          ...listing,
+          requests: listing.requests.filter((request) => request.status === 'REQUESTED'),
+        }))
+        .filter((listing) => listing.requests.length > 0),
+    [incomingListings],
+  );
 
-      setErrorMsg('Something went wrong. Please try again.')
+  const outgoingRequestByListingId = useMemo(
+    () => new Map(outgoingRequests.map((request) => [request.listing.id, request])),
+    [outgoingRequests],
+  );
 
-    }
-  }
+  const requestCount = incomingOpenRequests + outgoingTotalRequests;
 
   const readCurrentUser = async () => {
     try {
       const token = localStorage.getItem('JWT_TOKEN');
-      if (!token) { router.replace('/login'); return; }
+      if (!token) {
+        router.replace('/login');
+        return;
+      }
 
       const response = await Client.get('/users/me', {}, {
         Authorization: `Bearer ${token}`,
@@ -122,53 +110,178 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const readRequests = async () => {
-    const token = localStorage.getItem('JWT_TOKEN')
+  const readOutgoingRequests = async () => {
+    const token = localStorage.getItem('JWT_TOKEN');
+    if (!token) return;
+
     const response = await Client.get('/matching/interests/outgoing', {}, {
       Authorization: `Bearer ${token}`,
-    })
+    });
+
     if (response.status === 200) {
-      setRequests(response.data.data.requests)
-      setTotalRequests(response.data.data.totalRequests)
+      setOutgoingRequests(response.data.data.requests ?? []);
+      setOutgoingTotalRequests(response.data.data.totalRequests ?? 0);
     }
-  }
+  };
+
+  const readIncomingRequests = async () => {
+    const token = localStorage.getItem('JWT_TOKEN');
+    if (!token) return;
+
+    const response = await Client.get('/matching/interests/incoming', {}, {
+      Authorization: `Bearer ${token}`,
+    });
+
+    if (response.status === 200) {
+      setIncomingListings(response.data.data.listings ?? []);
+      setIncomingOpenRequests(response.data.data.openRequests ?? 0);
+    }
+  };
+
+  const readRequests = async () => {
+    await Promise.all([readIncomingRequests(), readOutgoingRequests()]);
+  };
+
+  const handleConnect = async (targetListingId: string) => {
+    setConnecting(true);
+    try {
+      const token = localStorage.getItem('JWT_TOKEN');
+      const response = await Client.post(
+        `/matching/interests/${targetListingId}/request`,
+        {},
+        { Authorization: `Bearer ${token}` },
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        setSelectedMatch(null);
+        setSuccessMsg('Connection request sent!');
+        await readRequests();
+        return;
+      }
+
+      if (response.status === 403) {
+        setErrorMsg('You do not have permission to connect with this listing.');
+        return;
+      }
+      if (response.status === 429) {
+        setErrorMsg('Too many requests. Please wait a moment and try again.');
+        return;
+      }
+
+      setErrorMsg('Something went wrong. Please try again.');
+    } catch {
+      setErrorMsg('Unable to reach the server. Please try again.');
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const handleApproveInterest = async (interestId: string) => {
+    setProcessingInterestId(interestId);
+    try {
+      const token = localStorage.getItem('JWT_TOKEN');
+      const response = await Client.post(
+        `/matching/interests/${interestId}/approve`,
+        {},
+        { Authorization: `Bearer ${token}` },
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        setSuccessMsg('Connection request approved.');
+        await readRequests();
+        return;
+      }
+
+      setErrorMsg(response.data?.message ?? 'Unable to approve this request right now.');
+    } catch {
+      setErrorMsg('Unable to reach the server. Please try again.');
+    } finally {
+      setProcessingInterestId(null);
+    }
+  };
+
+  const handleDeclineInterest = async (interestId: string) => {
+    setProcessingInterestId(interestId);
+    try {
+      const token = localStorage.getItem('JWT_TOKEN');
+      const response = await Client.post(
+        `/matching/interests/${interestId}/decline`,
+        {},
+        { Authorization: `Bearer ${token}` },
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        setSuccessMsg('Connection request declined.');
+        await readRequests();
+        return;
+      }
+
+      setErrorMsg(response.data?.message ?? 'Unable to decline this request right now.');
+    } catch {
+      setErrorMsg('Unable to reach the server. Please try again.');
+    } finally {
+      setProcessingInterestId(null);
+    }
+  };
 
   useEffect(() => {
-    readRequests()
-  }, [openRequestList])
-
-  useEffect(() => {
-    readCurrentUser().finally(() => setHydrated(true));
+    readCurrentUser()
+      .then(readRequests)
+      .finally(() => setHydrated(true));
   }, []);
 
+  useEffect(() => {
+    if (!openRequestList) return;
+    void readRequests();
+  }, [openRequestList]);
 
   useEffect(() => {
-    if (!successMsg) return
+    if (
+      openRequestList &&
+      incomingOpenRequests > previousIncomingOpenRequests.current &&
+      pendingIncomingListings.length > 0
+    ) {
+      setRequestTab('incoming');
+    }
+
+    previousIncomingOpenRequests.current = incomingOpenRequests;
+  }, [incomingOpenRequests, openRequestList, pendingIncomingListings.length]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('JWT_TOKEN');
+    if (!token) return;
+
+    return connectLiveUpdates(token, {
+      refreshUser: readCurrentUser,
+      refreshInterests: readRequests,
+      refreshUnreadCount: async () => undefined,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!successMsg) return;
     const t = setTimeout(async () => {
-      setSuccessMsg('')
-      setUpdateListing(null)
-      await readCurrentUser()
-      router.refresh()
-    }, 2000)
-    return () => clearTimeout(t)
-  }, [successMsg])
+      setSuccessMsg('');
+      setUpdateListing(null);
+      await Promise.all([readCurrentUser(), readRequests()]);
+      router.refresh();
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [successMsg]);
 
   useEffect(() => {
-    if (!errorMsg) return
-    const t = setTimeout(() => setErrorMsg(''), 4000)
-    return () => clearTimeout(t)
-  }, [errorMsg])
+    if (!errorMsg) return;
+    const t = setTimeout(() => setErrorMsg(''), 4000);
+    return () => clearTimeout(t);
+  }, [errorMsg]);
 
   if (!hydrated) return null;
 
   const activeListing = currentUser ? getActiveListing(currentUser.listings) : null;
 
-  // ── no listing ─────────────────────────────────────────────────────────────
-
   if (!currentUser || !activeListing) {
     return (
       <AuthLayout>
-
         <div className="max-w-4xl mx-auto py-20 px-4 text-center">
           <div className="bg-white p-12 rounded-3xl shadow-sm border border-slate-200">
             <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -190,15 +303,16 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  //  ── Update listing ─────────────────────────────────────────────────────────
-
   if (updateListing) {
     return (
-      <UpdateEngine listing={updateListing} setListing={setUpdateListing} successMsg={successMsg} setSuccessMsg={setSuccessMsg} />
-    )
+      <UpdateEngine
+        listing={updateListing}
+        setListing={setUpdateListing}
+        successMsg={successMsg}
+        setSuccessMsg={setSuccessMsg}
+      />
+    );
   }
-
-  // ── main dashboard ─────────────────────────────────────────────────────────
 
   return (
     <AuthLayout>
@@ -220,25 +334,24 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {successMsg && (
+      {errorMsg && (
         <div className="fixed top-6 right-6 z-[9999] w-full max-w-md">
           <Alert
-            color="success"
+            color="danger"
             variant="solid"
             isVisible
-            onClose={() => { setSuccessMsg(''); }}
+            onClose={() => { setErrorMsg(''); }}
             classNames={{
-              base: 'shadow-2xl rounded-2xl border border-emerald-500/20 bg-emerald-500 animate-in fade-in slide-in-from-top-2 duration-300',
+              base: 'shadow-2xl rounded-2xl border border-red-500/20 bg-red-500 animate-in fade-in slide-in-from-top-2 duration-300',
             }}
           >
             <div className="flex items-center gap-3">
-              <span className="text-white font-poppins-bold">{successMsg}</span>
+              <span className="text-white font-poppins-bold">{errorMsg}</span>
             </div>
           </Alert>
         </div>
       )}
 
-      {/* // ─── match modal ─────────────────────────────────────────────────────────────── */}
       <MatchModal
         open={!!selectedMatch}
         match={selectedMatch}
@@ -248,42 +361,44 @@ const Dashboard: React.FC = () => {
         onConnect={handleConnect}
       />
 
-      <RequestListModal open={openRequestList} onClose={() => setOpenRequestList(false)} requests={requests} totalRequests={totalRequests} />
-
-
+      <RequestListModal
+        open={openRequestList}
+        onClose={() => setOpenRequestList(false)}
+        outgoingRequests={outgoingRequests}
+        outgoingTotalRequests={outgoingTotalRequests}
+        incomingListings={pendingIncomingListings}
+        incomingOpenRequests={incomingOpenRequests}
+        activeTab={requestTab}
+        onTabChange={setRequestTab}
+        onApprove={handleApproveInterest}
+        onDecline={handleDeclineInterest}
+        processingInterestId={processingInterestId}
+      />
 
       <div className="max-w-6xl mx-auto py-12 px-4">
-
-        {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
             <p className="text-sm text-slate-500 font-poppins-medium mb-1">
-              Welcome back,{' '}
-              <span className="text-slate-700 font-poppins-bold">{currentUser.fullName}</span>
+              Welcome back, <span className="text-slate-700 font-poppins-bold">{currentUser.fullName}</span>
             </p>
             <h2 className="text-4xl font-poppins-bold text-slate-900 tracking-tight">
               Your Swap Dashboard
             </h2>
-            {/* <div className="flex items-center gap-3 mt-2"> */}
-            {/* {activeListing.expiresAt && ( */}
-            {/* <span className="text-sm text-slate-600 font-poppins-medium flex items-center gap-1"> */}
-            {/* <Clock4 size={15} /> */}
-            {/* Expires {formatDate(activeListing.expiresAt)} */}
-            {/* </span> */}
-            {/* )} */}
-            {/* </div> */}
           </div>
 
           <div className="flex items-center justify-between mb-6">
             <ButtonGroup variant="bordered" radius="lg">
               <Button
-                onPress={() => setOpenRequestList(true)}
+                onPress={() => {
+                  setRequestTab(incomingOpenRequests > 0 ? 'incoming' : 'outgoing');
+                  setOpenRequestList(true);
+                }}
                 className="font-poppins-bold text-sm text-slate-600 border-slate-200 hover:bg-slate-50 data-[hover=true]:bg-slate-50"
                 startContent={<Bell size={15} className="text-slate-400" />}
                 endContent={
-                  totalRequests > 0 && (
+                  requestCount > 0 && (
                     <span className="bg-emerald-500 text-white text-[10px] font-poppins-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                      {totalRequests}
+                      {requestCount}
                     </span>
                   )
                 }
@@ -298,7 +413,6 @@ const Dashboard: React.FC = () => {
               </Button>
               <Link href="/settings">
                 <Button
-
                   className="font-poppins-bold text-sm text-slate-600 border-slate-200 hover:bg-slate-50 data-[hover=true]:bg-slate-50"
                   startContent={<Settings size={15} className="text-slate-400" />}
                 >
@@ -307,16 +421,11 @@ const Dashboard: React.FC = () => {
               </Link>
             </ButtonGroup>
           </div>
-
         </div>
 
-
-        {/* Listings & Matches */}
         <div className="space-y-12">
           {currentUser.listings.map((listing) => (
             <div key={listing.id}>
-
-              {/* Listing header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <h3 className="text-lg font-poppins-bold text-slate-700">
@@ -341,14 +450,11 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Listing summary strip */}
               <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 mb-6">
                 <div className="flex-1">
                   <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">Leaving</p>
                   <p className="font-poppins-bold text-slate-800 text-sm">{listing.currentType} · {listing.currentCity}</p>
-                  <p className="text-xs text-slate-500 font-poppins-regular mt-0.5">
-                    ₦{listing.currentRent.toLocaleString()} / yr
-                  </p>
+                  <p className="text-xs text-slate-500 font-poppins-regular mt-0.5">₦{listing.currentRent.toLocaleString()} / yr</p>
                   {listing.currentAvailable ? (
                     <p className="text-xs text-emerald-600 font-poppins-medium mt-0.5 flex items-center gap-1">
                       <BadgeCheck size={11} className="shrink-0" /> Available {formatDate(listing.currentAvailableOn)}
@@ -365,9 +471,7 @@ const Dashboard: React.FC = () => {
                 <div className="flex-1">
                   <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">Looking For</p>
                   <p className="font-poppins-bold text-slate-800 text-sm">{listing.desiredType} · {listing.desiredCity}</p>
-                  <p className="text-xs text-slate-500 font-poppins-regular mt-0.5">
-                    Budget: ₦{listing.maxBudget.toLocaleString()} / yr
-                  </p>
+                  <p className="text-xs text-slate-500 font-poppins-regular mt-0.5">Budget: ₦{listing.maxBudget.toLocaleString()} / yr</p>
                   <p className="text-xs text-slate-500 font-poppins-regular mt-0.5 flex items-center gap-1">
                     <CalendarClock size={11} className="shrink-0" /> {listing.timeline}
                   </p>
@@ -390,7 +494,6 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
 
-              {/* Matches for this listing */}
               <div>
                 <h4 className="text-sm font-poppins-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                   Potential Matches
@@ -404,7 +507,12 @@ const Dashboard: React.FC = () => {
                 {listing.matches.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {listing.matches.map((match) => (
-                      <MatchCard key={match.id} match={match} setSelectedMatch={setSelectedMatch} />
+                      <MatchCard
+                        key={match.id}
+                        match={match}
+                        relatedRequest={outgoingRequestByListingId.get(match.targetListing.id)}
+                        setSelectedMatch={setSelectedMatch}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -420,24 +528,19 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
 
-              {/* Divider between listings */}
               {currentUser.listings.indexOf(listing) < currentUser.listings.length - 1 && (
                 <div className="border-b border-slate-100 mt-12" />
               )}
-
             </div>
           ))}
         </div>
 
-
-        {/* Protocol footer */}
         <div className="mt-20 bg-slate-900 text-white p-12 rounded-[2.5rem] relative overflow-hidden">
           <div className="relative z-10 max-w-2xl">
             <h3 className="text-3xl font-poppins-bold mb-4">The Swap Protocol</h3>
             <p className="text-slate-400 font-poppins-regular leading-relaxed mb-8">
               TenantSwap only facilitates the connection. Once you connect with others in your home match,
-              you should collectively contact your respective landlords or property managers to handle
-              the paperwork.
+              you should collectively contact your respective landlords or property managers to handle the paperwork.
             </p>
             <div className="flex gap-4">
               <div className="bg-emerald-600/20 text-emerald-400 p-4 rounded-2xl border border-emerald-600/30">
@@ -454,12 +557,9 @@ const Dashboard: React.FC = () => {
             <Home size={320} />
           </div>
         </div>
-
       </div>
     </AuthLayout>
   );
-
-
 };
 
 export default Dashboard;

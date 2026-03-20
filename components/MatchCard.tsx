@@ -1,9 +1,10 @@
-import { MatchCandidate } from "@/shared/types";
-import { TrendingUp, ArrowRight, MapPin, BadgeCheck } from "lucide-react";
-import React from "react";
+import { MatchCandidate, UserSwapRequest } from "@/shared/types";
+import { TrendingUp, ArrowRight, MapPin, BadgeCheck, Phone, UserRound } from "lucide-react";
+import React, { useState } from "react";
 
 interface Props {
       match: MatchCandidate;
+      relatedRequest?: UserSwapRequest;
       setSelectedMatch: (match: MatchCandidate | null) => void;
 }
 
@@ -18,8 +19,38 @@ function scoreColor(score: number): string {
       return 'text-red-400';
 }
 
-const MatchCard: React.FC<Props> = ({ match, setSelectedMatch }) => {
+const REQUEST_STATUS_STYLES: Record<UserSwapRequest['status'], { label: string; className: string }> = {
+      REQUESTED: {
+            label: 'Pending',
+            className: 'border-amber-200 bg-amber-50 text-amber-700',
+      },
+      CONTACT_APPROVED: {
+            label: 'Approved',
+            className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      },
+      DECLINED: {
+            label: 'Declined',
+            className: 'border-red-200 bg-red-50 text-red-600',
+      },
+      RELEASED: {
+            label: 'Released',
+            className: 'border-sky-200 bg-sky-50 text-sky-700',
+      },
+      EXPIRED: {
+            label: 'Expired',
+            className: 'border-slate-200 bg-slate-50 text-slate-500',
+      },
+      CONFIRMED_RENTER: {
+            label: 'Confirmed',
+            className: 'border-blue-200 bg-blue-50 text-blue-700',
+      },
+};
+
+const MatchCard: React.FC<Props> = ({ match, relatedRequest, setSelectedMatch }) => {
       const { targetListing: t, totalScore } = match;
+      const [showContact, setShowContact] = useState(false);
+      const requestStatus = relatedRequest ? REQUEST_STATUS_STYLES[relatedRequest.status] : null;
+      const canViewContact = relatedRequest?.status === 'CONTACT_APPROVED' && !!relatedRequest.owner.phone;
 
       return (
             <div className="group h-full bg-white border border-slate-200 rounded-2xl p-5 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
@@ -31,13 +62,19 @@ const MatchCard: React.FC<Props> = ({ match, setSelectedMatch }) => {
                               </span>
                         </div>
 
-                        <button
-                              type="button"
-                              onClick={() => setSelectedMatch(match)}
-                              className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-emerald-700 shadow-sm opacity-0 translate-x-2 pointer-events-none transition-all duration-300 ease-out group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-x-0 group-focus-within:pointer-events-auto hover:bg-emerald-50"
-                        >
-                              Explore <ArrowRight size={13} className="transition-transform duration-300 group-hover:translate-x-0.5" />
-                        </button>
+                        {requestStatus ? (
+                              <span className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-poppins-bold ${requestStatus.className}`}>
+                                    {requestStatus.label}
+                              </span>
+                        ) : (
+                              <button
+                                    type="button"
+                                    onClick={() => setSelectedMatch(match)}
+                                    className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-emerald-700 shadow-sm opacity-0 translate-x-2 pointer-events-none transition-all duration-300 ease-out group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-x-0 group-focus-within:pointer-events-auto hover:bg-emerald-50"
+                              >
+                                    Explore <ArrowRight size={13} className="transition-transform duration-300 group-hover:translate-x-0.5" />
+                              </button>
+                        )}
                   </div>
 
                   <div className="space-y-2">
@@ -54,6 +91,29 @@ const MatchCard: React.FC<Props> = ({ match, setSelectedMatch }) => {
                               </p>
                         )}
                   </div>
+
+                  {canViewContact && (
+                        <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3">
+                              <button
+                                    type="button"
+                                    onClick={() => setShowContact((prev) => !prev)}
+                                    className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-2 text-xs font-poppins-bold text-white transition-all hover:bg-emerald-700"
+                              >
+                                    <Phone size={12} /> {showContact ? 'Hide Contact' : 'View Contact'}
+                              </button>
+
+                              {showContact && (
+                                    <div className="mt-3 space-y-2 text-xs text-slate-600">
+                                          <p className="flex items-center gap-2 font-poppins-medium">
+                                                <UserRound size={13} className="text-emerald-600" /> {relatedRequest.owner.fullName}
+                                          </p>
+                                          <p className="flex items-center gap-2 font-poppins-medium">
+                                                <Phone size={13} className="text-emerald-600" /> {relatedRequest.owner.phone}
+                                          </p>
+                                    </div>
+                              )}
+                        </div>
+                  )}
 
                   {t.features.length > 0 && (
                         <div className="mt-4 border-t border-slate-100 pt-4">
