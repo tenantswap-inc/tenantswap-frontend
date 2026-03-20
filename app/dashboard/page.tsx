@@ -260,14 +260,14 @@ const Dashboard: React.FC = () => {
             <h2 className="text-4xl font-poppins-bold text-slate-900 tracking-tight">
               Your Swap Dashboard
             </h2>
-            <div className="flex items-center gap-3 mt-2">
-              {activeListing.expiresAt && (
-                <span className="text-sm text-slate-600 font-poppins-medium flex items-center gap-1">
-                  <Clock4 size={15} />
-                  Expires {formatDate(activeListing.expiresAt)}
-                </span>
-              )}
-            </div>
+            {/* <div className="flex items-center gap-3 mt-2"> */}
+            {/* {activeListing.expiresAt && ( */}
+            {/* <span className="text-sm text-slate-600 font-poppins-medium flex items-center gap-1"> */}
+            {/* <Clock4 size={15} /> */}
+            {/* Expires {formatDate(activeListing.expiresAt)} */}
+            {/* </span> */}
+            {/* )} */}
+            {/* </div> */}
           </div>
 
           <div className="flex items-center justify-between mb-6">

@@ -133,7 +133,9 @@ type AllErrors = Partial<Record<keyof Step1Values | keyof Step2Values, string>>
 
 const Engine: React.FC = () => {
   const router = useRouter()
-  const token = useToken()
+  const { token } = useToken()
+
+  console.log('token', token)
 
   // ── Step 1 fields ──────────────────────────────────────────────────────────
   const [desiredType, setDesiredType] = useState<PropertyType>('No Option')
