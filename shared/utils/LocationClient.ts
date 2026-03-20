@@ -13,7 +13,7 @@ const apiClient: AxiosInstance = axios.create({
             "X-CSCAPI-KEY": apiKey
 
       },
-      // validateStatus: () => true,
+      validateStatus: () => true,
 });
 
 export const Client = {

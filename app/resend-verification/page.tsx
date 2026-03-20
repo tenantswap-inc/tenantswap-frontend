@@ -36,16 +36,16 @@ const ResendVerification: React.FC = () => {
     try {
       const response = await Client.post("/auth/resend-verification", { email })
 
-      if (response.status === 200 ||response.status === 201) {
+      console.log(response.data)
+
+      if (response.status === 200 || response.status === 201) {
         setState("success")
-        setMessage(
-          "We've sent a new verification link to your email. Please check your inbox and spam folder."
-        )
+        setMessage(response.data.message)
         return
       }
 
       if (response.status === 404) {
-        setState("error")
+        setState("success")
         setMessage("No account found with that email address.")
         return
       }

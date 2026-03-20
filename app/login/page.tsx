@@ -9,6 +9,7 @@ import { Alert } from "@heroui/alert"
 import { z } from "zod"
 import { Client } from "@/shared/utils/ApiClient"
 import GoogleSignInButton from "@/components/GoogleSignInButton"
+import Toasts from "@/components/Toasts"
 
 const loginSchema = z.object({
   phone: z
@@ -30,6 +31,7 @@ const Login: React.FC = () => {
   const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
   const [alertMsg, setAlertMsg] = useState("")
+  const [successMsg, setSuccessMsg] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
@@ -108,6 +110,7 @@ const Login: React.FC = () => {
           return
         }
 
+        setSuccessMsg("Login successful")
         localStorage.setItem("JWT_TOKEN", token)
         router.replace("/dashboard")
         return
@@ -204,25 +207,13 @@ const Login: React.FC = () => {
   return (
     <GuestLayout>
 
-      {/* ── Error toast ──────────────────────────────────────────────────── */}
-      {alertMsg && (
-        <div className="fixed top-6 right-6 z-[9999] w-full max-w-sm">
-          <Alert
-            color="danger"
-            variant="solid"
-            isVisible
-            onClose={() => setAlertMsg("")}
-            classNames={{
-              base: "shadow-2xl rounded-2xl border border-red-400/20 bg-red-500 animate-in fade-in slide-in-from-top-2 duration-300",
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <X size={16} className="rounded-sm text-red-500 bg-white shrink-0" />
-              <span className="text-white font-poppins-bold text-sm">{alertMsg}</span>
-            </div>
-          </Alert>
-        </div>
-      )}
+      {/* Toast alert */}
+      <Toasts
+        alertMsg={alertMsg}
+        successMsg={successMsg}
+        onCloseAlert={() => setAlertMsg("")}
+        onCloseSuccess={() => setSuccessMsg("")}
+      />
 
       {/* ── Reverification countdown banner ──────────────────────────────── */}
       {showReverify && (

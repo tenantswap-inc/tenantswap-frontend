@@ -11,13 +11,15 @@ const Navbar: React.FC = () => {
   const pathname = usePathname()
   const router = useRouter()
   const isHome = pathname === "/"
-  const token = useToken()
+  const { token } = useToken()
 
   const isLoggedIn = token !== null
 
+
+
   console.log("Is Logged In: ", isLoggedIn)
   const handleLogout = async () => {
-
+    console.log("token: ", token)
  try {
      const response = await Client.post("/auth/logout", {}, {
       "Authorization": `Bearer ${token}`
@@ -26,7 +28,7 @@ const Navbar: React.FC = () => {
     if (response.status === 200 || response.status === 201) {
       console.log(response.data)
       localStorage.removeItem("JWT_TOKEN")
-      router.push("/")
+      router.replace("/")
       return
     }
 
@@ -34,7 +36,7 @@ const Navbar: React.FC = () => {
       console.log(response.data)
 
       localStorage.removeItem("JWT_TOKEN")
-      router.push("/")
+      router.replace("/")
       return
     }
 
@@ -42,7 +44,7 @@ const Navbar: React.FC = () => {
       console.log(response.data)
 
       localStorage.removeItem("JWT_TOKEN")
-      router.push("/")
+      router.replace("/")
       return
     }
 

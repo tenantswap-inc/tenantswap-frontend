@@ -12,6 +12,7 @@ import Onboarding from "@/components/onboarding"
 import { Client } from "@/shared/utils/ApiClient"
 import GoogleSignInButton from "@/components/GoogleSignInButton"
 import { Check } from "lucide-react"
+import Toasts from "@/components/Toasts"
 
 
 /* ========================= ZOD SCHEMA ========================= */
@@ -24,7 +25,7 @@ const schema = z
     email: z.email("Enter a valid email").optional().or(z.literal("")),
     password: z
       .string()
-      .min(6, "Password must be at least 6 characters")
+      .min(8, "Password must be at least 8 characters")
       .regex(/[A-Z]/, "Password must include at least one uppercase letter")
       .regex(/[a-z]/, "Password must include at least one lowercase letter")
       .regex(/[0-9]/, "Password must include at least one number")
@@ -71,6 +72,7 @@ const Register: React.FC = () => {
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [alertMsg, setAlertMsg] = useState("")
+  const [successMsg, setSuccessMsg] = useState("")
   const [authChecked, setAuthChecked] = useState(false)
 
 
@@ -92,6 +94,15 @@ const Register: React.FC = () => {
     const timer = setTimeout(() => setAlertMsg(""), 4000)
     return () => clearTimeout(timer)
   }, [alertMsg])
+
+  useEffect(() => {
+    if (!successMsg) return
+    const timer = setTimeout(() => {
+      setAlertMsg("")
+      router.push("/login")
+    }, 4000)
+    return () => clearTimeout(timer)
+  }, [successMsg])
 
 
   const update = (field: keyof FormData, value: any) =>
@@ -150,9 +161,27 @@ const Register: React.FC = () => {
 
       })
 
+      const message = response.data.message
+
       if (response.status === 201 || response.status === 200 || response.status === 204) {
-        setAlertMsg("Registration successful. Check your email for verification mail.");
-        router.push("/login");
+        setSuccessMsg("Registration successful. Check your email for verification mail.");
+
+      }
+      if (response.status === 409) {
+        setAlertMsg(message);
+        return;
+
+      }
+      if (response.status === 400) {
+        setAlertMsg(message);
+        console.log(response.data)
+        return;
+
+      }
+      if (response.status === 429) {
+        setAlertMsg(message);
+        return;
+
       }
     } catch (error: any) {
       if (error.response) {
@@ -174,6 +203,14 @@ const Register: React.FC = () => {
   if (showOnboarding) {
     return (
       <GuestLayout>
+        {/* Toast alert */}
+        <Toasts
+          alertMsg={alertMsg}
+          successMsg={successMsg}
+          onCloseAlert={() => setAlertMsg("")}
+          onCloseSuccess={() => setSuccessMsg("")}
+        />
+
         <Onboarding currentUser={registeredUser} onComplete={handleOnboardingComplete} />
       </GuestLayout>
     )
@@ -182,24 +219,12 @@ const Register: React.FC = () => {
   return (
     <GuestLayout>
       {/* Toast alert */}
-      {alertMsg && (
-        <div className="fixed top-6 right-6 z-[9999] w-full max-w-sm">
-          <Alert
-            color="danger"
-            variant="solid"
-            isVisible={true}
-            onClose={() => setAlertMsg("")}
-            classNames={{
-              base: "shadow-2xl rounded-2xl border border-red-400/20 bg-red-500 animate-in fade-in slide-in-from-top-2 duration-300",
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <X size={16} className="rounded-sm text-red-500 bg-white shrink-0" />
-              <span className="text-white font-poppins-bold text-sm">{alertMsg}</span>
-            </div>
-          </Alert>
-        </div>
-      )}
+      <Toasts
+        alertMsg={alertMsg}
+        successMsg={successMsg}
+        onCloseAlert={() => setAlertMsg("")}
+        onCloseSuccess={() => setSuccessMsg("")}
+      />
 
       {/* Page background */}
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/30 to-teal-50/20 flex items-center justify-center py-12 px-4">

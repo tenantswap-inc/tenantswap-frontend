@@ -1,14 +1,17 @@
+"use client"
 import GuestLayout from '@/app/GuestLayout';
 import {Landing} from '@/components/Landing';
 import React from 'react';
+import { HeroUIProvider } from "@heroui/react";
+
 
 const Home: React.FC = () => {
 
 
   return(
-    <GuestLayout children={<Landing/>}/>
-
-
+    <HeroUIProvider>
+      <GuestLayout children={<Landing />} />
+    </HeroUIProvider>
  )
 }
 

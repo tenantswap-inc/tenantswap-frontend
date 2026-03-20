@@ -1,0 +1,135 @@
+'use client'
+import React from 'react'
+import { MapPin, Clock4, Home, Phone, User, BadgeCheck } from 'lucide-react'
+import { UserSwapRequest } from '@/shared/types'
+
+function formatDate(dateStr: string) {
+      return new Date(dateStr).toLocaleDateString('en-NG', { dateStyle: 'medium' })
+}
+
+function timeRemaining(expiresAt: string): string {
+      const diff = new Date(expiresAt).getTime() - Date.now()
+      if (diff <= 0) return 'Expired'
+      const hours = Math.floor(diff / 1000 / 60 / 60)
+      if (hours < 24) return `${hours}h remaining`
+      const days = Math.floor(hours / 24)
+      return `${days}d remaining`
+}
+
+const STATUS_CONFIG = {
+      REQUESTED: { label: 'Pending', bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-400' },
+      ACCEPTED: { label: 'Accepted', bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+      DECLINED: { label: 'Declined', bg: 'bg-red-100', text: 'text-red-600', dot: 'bg-red-400' },
+      EXPIRED: { label: 'Expired', bg: 'bg-slate-100', text: 'text-slate-500', dot: 'bg-slate-400' },
+}
+
+function RequestCard({ request }: { request: UserSwapRequest }) {
+      const status = STATUS_CONFIG[request.status] ?? STATUS_CONFIG.REQUESTED
+      const isExpiringSoon =
+            new Date(request.expiresAt).getTime() - Date.now() < 1000 * 60 * 60 * 24 &&
+            request.status === 'REQUESTED'
+
+      return (
+            <div className={`flex items-center gap-4 bg-white border rounded-2xl px-4 py-3.5 hover:shadow-sm transition-all duration-200 ${isExpiringSoon ? 'border-red-100 bg-red-50/30' : 'border-slate-100'
+                  }`}>
+
+                  {/* Avatar */}
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                        <User size={18} className="text-emerald-600" />
+                  </div>
+
+                  {/* Main content */}
+                  <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                              <p className="text-sm font-poppins-bold text-slate-800 truncate">
+                                    {request.owner.fullName}
+                              </p>
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-poppins-bold px-2 py-0.5 rounded-full shrink-0 ${status.bg} ${status.text}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                                    {status.label}
+                              </span>
+                              {isExpiringSoon && (
+                                    <span className="text-[10px] font-poppins-bold text-red-500 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full shrink-0">
+                                          Expiring soon
+                                    </span>
+                              )}
+                              {request.status === 'ACCEPTED' && (
+                                    <span className="flex items-center gap-1 text-[10px] text-emerald-600 font-poppins-bold shrink-0">
+                                          <BadgeCheck size={12} /> Connected
+                                    </span>
+                              )}
+                        </div>
+
+                        <div className="flex items-center gap-3 flex-wrap">
+                              {/* Property */}
+                              <span className="text-xs text-slate-500 font-poppins-medium">
+                                    {request.listing.currentType}
+                              </span>
+                              <span className="text-slate-200">·</span>
+                              <div className="flex items-center gap-1">
+                                    <MapPin size={10} className="text-emerald-500 shrink-0" />
+                                    <span className="text-xs text-slate-400 font-poppins-regular">
+                                          {request.listing.currentArea}, {request.listing.currentCity}
+                                    </span>
+                              </div>
+                              <span className="text-slate-200">·</span>
+                              <span className="text-xs text-slate-400 font-poppins-regular">
+                                    ₦{request.listing.currentRent.toLocaleString()} / yr
+                              </span>
+                        </div>
+                  </div>
+
+                  {/* Right — time & date */}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                        <div className={`flex items-center gap-1 text-[10px] font-poppins-bold ${isExpiringSoon ? 'text-red-500' : 'text-slate-400'
+                              }`}>
+                              <Clock4 size={11} />
+                              {timeRemaining(request.expiresAt)}
+                        </div>
+                        <span className="text-[10px] text-slate-300 font-poppins-regular">
+                              {formatDate(request.createdAt)}
+                        </span>
+                        {request.owner.phone && (
+                              <div className="flex items-center gap-1">
+                                    <Phone size={10} className="text-slate-300" />
+                                    <span className="text-[10px] text-slate-400 font-poppins-regular">
+                                          {request.owner.phone}
+                                    </span>
+                              </div>
+                        )}
+                  </div>
+
+            </div>
+      )
+}
+
+// ── List component ──────────────────────────────────────────────────────────
+
+interface RequestsListProps {
+      requests: UserSwapRequest[]
+      totalRequests: number
+}
+
+export default function RequestsList({ requests, totalRequests }: RequestsListProps) {
+      if (!requests.length) {
+            return (
+                  <div className="border border-dashed border-slate-200 rounded-2xl p-10 text-center">
+                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                              <Home size={20} className="text-slate-300" />
+                        </div>
+                        <p className="font-poppins-bold text-slate-400 text-sm">No connection requests yet</p>
+                        <p className="text-slate-300 font-poppins-regular text-xs mt-1">
+                              When you connect with a match, your requests will appear here.
+                        </p>
+                  </div>
+            )
+      }
+
+      return (
+            <div className="flex flex-col gap-2">
+                  {requests.map((request) => (
+                        <RequestCard key={request.interestId} request={request} />
+                  ))}
+            </div>
+      )
+}

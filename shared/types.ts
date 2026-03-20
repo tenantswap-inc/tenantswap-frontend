@@ -58,6 +58,29 @@ export interface SwapRequest {
   onboardingComplete: boolean,
 }
 
+export interface UserSwapRequest {
+  interestId: string
+  status: 'REQUESTED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED'
+  createdAt: string
+  expiresAt: string
+  listing: {
+    id: string
+    status: string
+    currentState: string
+    currentCity: string
+    currentArea: string
+    currentType: string
+    currentRent: number
+  }
+  owner: {
+    id: string
+    fullName: string
+    phone: string | null
+  }
+  requesterListingId: string
+}
+
+
 export interface MatchChain {
   id: string;
   participants: SwapRequest[];

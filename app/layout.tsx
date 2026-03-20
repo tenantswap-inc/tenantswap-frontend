@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { GoogleOAuthProvider } from '@react-oauth/google';
-
+import { Providers } from "./provider";
 
 
 const url = process.env.API_URL as string;
@@ -30,13 +30,17 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
 
-    const clientId = process.env.GOOGLE_CLIENT_ID as string;
+  const clientId = process.env.GOOGLE_CLIENT_ID as string;
   return (
     <html lang="en">
       <body className={` antialiased`}>
+        <Providers>
+
         <GoogleOAuthProvider clientId={clientId}>
-             {children}
+            {children}
         </GoogleOAuthProvider>
+
+        </Providers>
       </body>
     </html>
   );
