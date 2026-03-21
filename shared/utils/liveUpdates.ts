@@ -121,26 +121,71 @@ type LiveUpdateHandlers = {
   refreshInterests?: () => Promise<void> | void
 }
 
+export type LiveUpdateCueKind = 'match' | 'request' | 'notification'
+export const LIVE_UPDATE_CUE_EVENT = 'tenantswap:live-cue'
+export const LIVE_UPDATE_EVENT = 'tenantswap:live-update'
+
 type LiveEventData = {
   type?: string
   [key: string]: unknown
 }
 
-function resolveEventType(event: { event?: string; data?: string }): string | null {
-  if (event.event) {
-    return event.event
+export type LiveUpdateEventType =
+  | 'connected'
+  | 'heartbeat'
+  | 'matches.updated'
+  | 'interests.updated'
+  | 'notifications.updated'
+  | 'user.refresh'
+
+export type LiveUpdateEventDetail = {
+  type: LiveUpdateEventType
+  data: LiveEventData | null
+}
+
+function emitLiveUpdateCue(kind: LiveUpdateCueKind) {
+  if (typeof window === 'undefined') {
+    return
   }
 
-  if (!event.data) {
+  window.dispatchEvent(
+    new CustomEvent(LIVE_UPDATE_CUE_EVENT, {
+      detail: { kind },
+    }),
+  )
+}
+
+function emitLiveUpdateEvent(detail: LiveUpdateEventDetail) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(LIVE_UPDATE_EVENT, {
+      detail,
+    }),
+  )
+}
+
+function parseEventData(data?: string): LiveEventData | null {
+  if (!data) {
     return null
   }
 
   try {
-    const parsed = JSON.parse(event.data) as LiveEventData
-    return typeof parsed.type === 'string' ? parsed.type : null
+    return JSON.parse(data) as LiveEventData
   } catch {
     return null
   }
+}
+
+function resolveEventType(event: { event?: string; data?: string }): LiveUpdateEventType | null {
+  if (event.event) {
+    return event.event as LiveUpdateEventType
+  }
+
+  const parsed = parseEventData(event.data)
+  return typeof parsed?.type === 'string' ? (parsed.type as LiveUpdateEventType) : null
 }
 
 export function connectLiveUpdates(token: string, handlers: LiveUpdateHandlers) {
@@ -161,9 +206,18 @@ export function connectLiveUpdates(token: string, handlers: LiveUpdateHandlers) 
     openWhenHidden: true,
     async onmessage(event) {
       const eventType = resolveEventType(event)
+      const eventData = parseEventData(event.data)
+
+      if (eventType) {
+        emitLiveUpdateEvent({
+          type: eventType,
+          data: eventData,
+        })
+      }
 
       switch (eventType) {
         case 'matches.updated':
+          emitLiveUpdateCue('match')
           playLiveUpdateSound('match')
           await handlers.refreshUser()
           break
@@ -171,10 +225,12 @@ export function connectLiveUpdates(token: string, handlers: LiveUpdateHandlers) 
           await handlers.refreshUser()
           break
         case 'notifications.updated':
+          emitLiveUpdateCue('notification')
           playLiveUpdateSound('notification')
           await handlers.refreshUnreadCount?.()
           break
         case 'interests.updated':
+          emitLiveUpdateCue('request')
           playLiveUpdateSound('request')
           await handlers.refreshInterests?.()
           break

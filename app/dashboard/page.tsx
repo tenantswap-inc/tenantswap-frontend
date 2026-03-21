@@ -13,6 +13,7 @@ import {
   ShieldCheck, FileText, Home, CalendarClock,
   BadgeCheck, Clock4,
   Bell,
+  Plus,
   Settings,
 } from 'lucide-react';
 import { Client } from '@/shared/utils/ApiClient';
@@ -24,7 +25,12 @@ import MatchModal from '@/components/MatchingModal';
 import MatchCard from '@/components/MatchCard';
 import { Button, ButtonGroup } from '@heroui/react';
 import RequestListModal from '@/components/RequestListModal';
-import { connectLiveUpdates } from '@/shared/utils/liveUpdates';
+import {
+  LIVE_UPDATE_CUE_EVENT,
+  LIVE_UPDATE_EVENT,
+  LiveUpdateCueKind,
+  type LiveUpdateEventDetail,
+} from '@/shared/utils/liveUpdates';
 
 function getActiveListing(listings: UserSwapListing[]): UserSwapListing | null {
   if (!listings?.length) return null;
@@ -60,11 +66,12 @@ const Dashboard: React.FC = () => {
   const [outgoingRequests, setOutgoingRequests] = useState<UserSwapRequest[]>([]);
   const [incomingListings, setIncomingListings] = useState<IncomingInterestListing[]>([]);
   const [openRequestList, setOpenRequestList] = useState(false);
-  const [outgoingTotalRequests, setOutgoingTotalRequests] = useState(0);
-  const [incomingOpenRequests, setIncomingOpenRequests] = useState(0);
   const [requestTab, setRequestTab] = useState<'incoming' | 'outgoing'>('incoming');
   const [processingInterestId, setProcessingInterestId] = useState<string | null>(null);
+  const [requestAttentionActive, setRequestAttentionActive] = useState(false);
+  const [requestAttentionPulseActive, setRequestAttentionPulseActive] = useState(false);
   const previousIncomingOpenRequests = useRef(0);
+  const requestAttentionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
 
   const pendingIncomingListings = useMemo(
@@ -83,7 +90,20 @@ const Dashboard: React.FC = () => {
     [outgoingRequests],
   );
 
-  const requestCount = incomingOpenRequests + outgoingTotalRequests;
+  const pendingOutgoingRequests = useMemo(
+    () => outgoingRequests.filter((request) => request.status === 'REQUESTED'),
+    [outgoingRequests],
+  );
+
+  const pendingIncomingRequestCount = useMemo(
+    () => pendingIncomingListings.reduce((total, listing) => total + listing.requests.length, 0),
+    [pendingIncomingListings],
+  );
+
+  const listingCount = currentUser?.listings.length ?? 0;
+  const maxFreeListings = 2;
+  const canCreateListing = listingCount < maxFreeListings;
+  const requestCount = pendingIncomingRequestCount + pendingOutgoingRequests.length;
 
   const readCurrentUser = async () => {
     try {
@@ -120,7 +140,6 @@ const Dashboard: React.FC = () => {
 
     if (response.status === 200) {
       setOutgoingRequests(response.data.data.requests ?? []);
-      setOutgoingTotalRequests(response.data.data.totalRequests ?? 0);
     }
   };
 
@@ -134,7 +153,6 @@ const Dashboard: React.FC = () => {
 
     if (response.status === 200) {
       setIncomingListings(response.data.data.listings ?? []);
-      setIncomingOpenRequests(response.data.data.openRequests ?? 0);
     }
   };
 
@@ -224,6 +242,22 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleOpenListings = () => {
+    document.getElementById('listings-section')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  };
+
+  const handleAddListing = () => {
+    if (!canCreateListing) {
+      setErrorMsg('Free plan includes up to 2 listings. Upgrade to Premium for more.');
+      return;
+    }
+
+    router.push('/engine');
+  };
+
   useEffect(() => {
     readCurrentUser()
       .then(readRequests)
@@ -238,24 +272,82 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (
       openRequestList &&
-      incomingOpenRequests > previousIncomingOpenRequests.current &&
+      pendingIncomingRequestCount > previousIncomingOpenRequests.current &&
       pendingIncomingListings.length > 0
     ) {
       setRequestTab('incoming');
     }
 
-    previousIncomingOpenRequests.current = incomingOpenRequests;
-  }, [incomingOpenRequests, openRequestList, pendingIncomingListings.length]);
+    previousIncomingOpenRequests.current = pendingIncomingRequestCount;
+  }, [pendingIncomingRequestCount, openRequestList, pendingIncomingListings.length]);
 
   useEffect(() => {
-    const token = localStorage.getItem('JWT_TOKEN');
-    if (!token) return;
+    const handleLiveCue = (event: Event) => {
+      const customEvent = event as CustomEvent<{ kind?: LiveUpdateCueKind }>;
 
-    return connectLiveUpdates(token, {
-      refreshUser: readCurrentUser,
-      refreshInterests: readRequests,
-      refreshUnreadCount: async () => undefined,
-    });
+      if (customEvent.detail?.kind !== 'request') {
+        return;
+      }
+
+      setRequestAttentionActive(true);
+      setRequestAttentionPulseActive(true);
+
+      if (requestAttentionTimeoutRef.current) {
+        clearTimeout(requestAttentionTimeoutRef.current);
+      }
+
+      requestAttentionTimeoutRef.current = setTimeout(() => {
+        setRequestAttentionPulseActive(false);
+        requestAttentionTimeoutRef.current = null;
+      }, 2400);
+    };
+
+    window.addEventListener(LIVE_UPDATE_CUE_EVENT, handleLiveCue as EventListener);
+
+    return () => {
+      window.removeEventListener(LIVE_UPDATE_CUE_EVENT, handleLiveCue as EventListener);
+      if (requestAttentionTimeoutRef.current) {
+        clearTimeout(requestAttentionTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (requestCount > 0) {
+      return;
+    }
+
+    setRequestAttentionActive(false);
+    setRequestAttentionPulseActive(false);
+
+    if (requestAttentionTimeoutRef.current) {
+      clearTimeout(requestAttentionTimeoutRef.current);
+      requestAttentionTimeoutRef.current = null;
+    }
+  }, [requestCount]);
+
+  useEffect(() => {
+    const handleLiveUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<LiveUpdateEventDetail>).detail;
+
+      if (!detail) {
+        return;
+      }
+
+      if (detail.type === 'matches.updated' || detail.type === 'user.refresh') {
+        void readCurrentUser();
+      }
+
+      if (detail.type === 'interests.updated') {
+        void readRequests();
+      }
+    };
+
+    window.addEventListener(LIVE_UPDATE_EVENT, handleLiveUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener(LIVE_UPDATE_EVENT, handleLiveUpdate as EventListener);
+    };
   }, []);
 
   useEffect(() => {
@@ -305,12 +397,14 @@ const Dashboard: React.FC = () => {
 
   if (updateListing) {
     return (
-      <UpdateEngine
-        listing={updateListing}
-        setListing={setUpdateListing}
-        successMsg={successMsg}
-        setSuccessMsg={setSuccessMsg}
-      />
+      <AuthLayout>
+        <UpdateEngine
+          listing={updateListing}
+          setListing={setUpdateListing}
+          successMsg={successMsg}
+          setSuccessMsg={setSuccessMsg}
+        />
+      </AuthLayout>
     );
   }
 
@@ -365,9 +459,9 @@ const Dashboard: React.FC = () => {
         open={openRequestList}
         onClose={() => setOpenRequestList(false)}
         outgoingRequests={outgoingRequests}
-        outgoingTotalRequests={outgoingTotalRequests}
+        outgoingTotalRequests={pendingOutgoingRequests.length}
         incomingListings={pendingIncomingListings}
-        incomingOpenRequests={incomingOpenRequests}
+        incomingOpenRequests={pendingIncomingRequestCount}
         activeTab={requestTab}
         onTabChange={setRequestTab}
         onApprove={handleApproveInterest}
@@ -390,15 +484,29 @@ const Dashboard: React.FC = () => {
             <ButtonGroup variant="bordered" radius="lg">
               <Button
                 onPress={() => {
-                  setRequestTab(incomingOpenRequests > 0 ? 'incoming' : 'outgoing');
+                  setRequestAttentionActive(false);
+                  setRequestAttentionPulseActive(false);
+                  if (requestAttentionTimeoutRef.current) {
+                    clearTimeout(requestAttentionTimeoutRef.current);
+                    requestAttentionTimeoutRef.current = null;
+                  }
+                  setRequestTab(pendingIncomingRequestCount > 0 ? 'incoming' : 'outgoing');
                   setOpenRequestList(true);
                 }}
-                className="font-poppins-bold text-sm text-slate-600 border-slate-200 hover:bg-slate-50 data-[hover=true]:bg-slate-50"
-                startContent={<Bell size={15} className="text-slate-400" />}
+                className={`relative overflow-visible font-poppins-bold text-sm text-slate-600 border-slate-200 transition-all duration-500 hover:bg-slate-50 data-[hover=true]:bg-slate-50 ${requestAttentionActive ? 'border-emerald-300 bg-emerald-50/80 text-emerald-700 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]' : ''} ${requestAttentionPulseActive ? 'shadow-[0_0_0_8px_rgba(16,185,129,0.18)]' : ''}`}
+                startContent={<Bell size={15} className={requestAttentionActive ? 'text-emerald-600' : 'text-slate-400'} />}
                 endContent={
                   requestCount > 0 && (
-                    <span className="bg-emerald-500 text-white text-[10px] font-poppins-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                      {requestCount}
+                    <span className="relative flex min-w-[18px] items-center justify-center">
+                      {requestAttentionPulseActive && (
+                        <>
+                          <span className="absolute inset-0 rounded-full bg-emerald-400/30 animate-ping" />
+                          <span className="absolute -inset-1 rounded-full border border-emerald-300/80 animate-ping [animation-delay:220ms]" />
+                        </>
+                      )}
+                      <span className={`relative rounded-full bg-emerald-500 px-1.5 py-0.5 text-center text-[10px] font-poppins-bold text-white transition-transform duration-500 ${requestAttentionPulseActive ? 'scale-110' : ''}`}>
+                        {requestCount}
+                      </span>
                     </span>
                   )
                 }
@@ -406,10 +514,24 @@ const Dashboard: React.FC = () => {
                 Requests
               </Button>
               <Button
+                onPress={handleOpenListings}
                 className="font-poppins-bold text-sm text-slate-600 border-slate-200 hover:bg-slate-50 data-[hover=true]:bg-slate-50"
                 startContent={<Home size={15} className="text-slate-400" />}
+                endContent={
+                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-poppins-bold text-slate-500">
+                    {listingCount}
+                  </span>
+                }
               >
                 Listings
+              </Button>
+              <Button
+                isDisabled={!canCreateListing}
+                onPress={handleAddListing}
+                className="font-poppins-bold text-sm text-emerald-700 border-emerald-200 hover:bg-emerald-50 data-[hover=true]:bg-emerald-50 disabled:text-slate-300 disabled:border-slate-200 disabled:bg-white"
+                startContent={<Plus size={15} className={canCreateListing ? 'text-emerald-600' : 'text-slate-300'} />}
+              >
+                Add Listing
               </Button>
               <Link href="/settings">
                 <Button
@@ -422,6 +544,30 @@ const Dashboard: React.FC = () => {
             </ButtonGroup>
           </div>
         </div>
+
+        <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between" id="listings-section">
+          <div>
+            <h3 className="text-xl font-poppins-bold text-slate-800">Your Listings</h3>
+            <p className="mt-1 text-sm font-poppins-regular text-slate-500">
+              {listingCount}/{maxFreeListings} free listings used. Add up to two listings on the free plan.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleAddListing}
+            disabled={!canCreateListing}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-poppins-bold text-emerald-700 transition-all hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
+          >
+            <Plus size={15} /> Add Listing
+          </button>
+        </div>
+
+        {!canCreateListing && (
+          <div className="mb-10 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <span className="font-poppins-bold">Free plan includes up to 2 listings.</span> Upgrade to Premium for more.
+          </div>
+        )}
 
         <div className="space-y-12">
           {currentUser.listings.map((listing) => (

@@ -1,15 +1,31 @@
 'use client'
-import React, { useState } from 'react'
+
+import React, { useEffect } from 'react'
 import Navbar from '@/components/Navbar'
+import { useToken } from '@/shared/hooks/useToken'
+import { connectLiveUpdates } from '@/shared/utils/liveUpdates'
 
 interface Props {
   children: React.ReactNode
 }
 
 const App: React.FC<Props> = ({ children }) => {
+  const { token, ready } = useToken()
+
+  useEffect(() => {
+    if (!ready || !token) {
+      return
+    }
+
+    return connectLiveUpdates(token, {
+      refreshUser: async () => undefined,
+      refreshInterests: async () => undefined,
+      refreshUnreadCount: async () => undefined,
+    })
+  }, [ready, token])
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      {/* Navigation */}
       <Navbar />
 
       <main className="flex-grow">{children}</main>

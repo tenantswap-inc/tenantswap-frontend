@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PROPERTY_TYPES, TIMELINES, FEATURES } from '@/constants';
 import GuestLayout from '@/app/GuestLayout';
-import { CheckSquare, Square, X, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
+import { CheckSquare, Square, X, ChevronRight, ChevronLeft, Loader2, Megaphone } from 'lucide-react';
 import { Alert } from '@heroui/alert';
 import { z } from 'zod';
 import StepHeader from '@/components/Stepper';
@@ -125,9 +125,79 @@ const step2Schema = z.object({
     { message: 'Availability date cannot be in the past', path: ['currentAvailableOn'] }
   )
 
+type VacancyKeys = 'hasVacancyAlert' | 'vacancyApartmentType' | 'vacancyState' | 'vacancyCity' | 'vacancyArea' | 'vacancyFeatures'
+
+const vacancySchema = z.object({
+  hasVacancyAlert: z.boolean('Please choose Yes or No'),
+  vacancyApartmentType: z.string().optional(),
+  vacancyState: z.string().optional(),
+  vacancyCity: z.string().optional(),
+  vacancyArea: z.string().optional(),
+  vacancyFeatures: z.array(z.string()).optional(),
+}).superRefine((data, ctx) => {
+  if (!data.hasVacancyAlert) {
+    return
+  }
+
+  if (!data.vacancyApartmentType || data.vacancyApartmentType === 'No Option') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['vacancyApartmentType'],
+      message: 'Select an apartment type',
+    })
+  }
+
+  if (!data.vacancyState || !(ALLOWED_SWAP_STATES as readonly string[]).includes(data.vacancyState)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['vacancyState'],
+      message: 'Select a state',
+    })
+    return
+  }
+
+  const vacancyCities = getAllowedSwapCities(data.vacancyState as Location)
+
+  if (!data.vacancyCity || !vacancyCities.includes(data.vacancyCity)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['vacancyCity'],
+      message: 'Select a valid city',
+    })
+  }
+
+  const vacancyAreas = data.vacancyCity
+    ? getSwapAreasForCity(data.vacancyState as Location, data.vacancyCity)
+    : []
+
+  if (vacancyAreas.length > 0) {
+    if (!data.vacancyArea) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['vacancyArea'],
+        message: 'Select an area',
+      })
+    } else if (!vacancyAreas.includes(data.vacancyArea)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['vacancyArea'],
+        message: 'Select a valid area',
+      })
+    }
+  }
+
+  if (!data.vacancyFeatures || data.vacancyFeatures.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['vacancyFeatures'],
+      message: 'Please select at least one feature',
+    })
+  }
+})
+
 type Step1Values = z.infer<typeof step1Schema>
 type Step2Values = z.infer<typeof step2Schema>
-type AllErrors = Partial<Record<keyof Step1Values | keyof Step2Values, string>>
+type AllErrors = Partial<Record<keyof Step1Values | keyof Step2Values | VacancyKeys, string>>
 
 // ─── component ────────────────────────────────────────────────────────────────
 
@@ -157,6 +227,14 @@ const Engine: React.FC = () => {
   const [currentRentDisplay, setCurrentRentDisplay] = useState('')
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([])
 
+  // ── Vacancy alert fields ───────────────────────────────────────────────────
+  const [hasVacancyAlert, setHasVacancyAlert] = useState<boolean | null>(null)
+  const [vacancyApartmentType, setVacancyApartmentType] = useState<PropertyType>('No Option')
+  const [vacancyState, setVacancyState] = useState<Location>('No Option')
+  const [vacancyCity, setVacancyCity] = useState('')
+  const [vacancyArea, setVacancyArea] = useState('')
+  const [vacancyFeatures, setVacancyFeatures] = useState<string[]>([])
+
   // ── UI state ───────────────────────────────────────────────────────────────
   const [step, setStep] = useState(0)
   const [errors, setErrors] = useState<AllErrors>({})
@@ -165,8 +243,10 @@ const Engine: React.FC = () => {
 
   const desiredCities = getAllowedSwapCities(desiredState)
   const currentCities = getAllowedSwapCities(currentState)
+  const vacancyCities = getAllowedSwapCities(vacancyState)
   const desiredAreas = getSwapAreasForCity(desiredState, desiredCity)
   const currentAreas = getSwapAreasForCity(currentState, currentCity)
+  const vacancyAreas = getSwapAreasForCity(vacancyState, vacancyCity)
 
   useEffect(() => {
     if (!alertMsg) return
@@ -176,6 +256,11 @@ const Engine: React.FC = () => {
 
   const toggleFeature = (f: string) =>
     setSelectedFeatures(prev =>
+      prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
+    )
+
+  const toggleVacancyFeature = (f: string) =>
+    setVacancyFeatures(prev =>
       prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
     )
 
@@ -215,6 +300,33 @@ const Engine: React.FC = () => {
       setErrors({})
       setAlertMsg('')
       setStep(2)
+    } else if (step === 2) {
+      if (hasVacancyAlert === null) {
+        setErrors({ hasVacancyAlert: 'Please choose Yes or No' })
+        setAlertMsg('Please tell us whether you know of a vacancy.')
+        return
+      }
+
+      const result = vacancySchema.safeParse({
+        hasVacancyAlert,
+        vacancyApartmentType,
+        vacancyState,
+        vacancyCity,
+        vacancyArea,
+        vacancyFeatures,
+      })
+
+      if (!result.success) {
+        const errs: AllErrors = {}
+        result.error.issues.forEach(i => { errs[i.path[0] as keyof AllErrors] = i.message })
+        setErrors(errs)
+        setAlertMsg('Please fix the highlighted vacancy fields before continuing.')
+        return
+      }
+
+      setErrors({})
+      setAlertMsg('')
+      setStep(3)
     }
   }
 
@@ -247,6 +359,15 @@ const Engine: React.FC = () => {
       currentAvailable,
       currentAvailableOn: currentAvailable ? new Date(currentAvailableOn).toISOString() : null,
       features: selectedFeatures,
+      vacancyAlert: hasVacancyAlert
+        ? {
+            apartmentType: vacancyApartmentType,
+            state: vacancyState,
+            city: vacancyCity,
+            area: vacancyArea || null,
+            features: vacancyFeatures,
+          }
+        : null,
     }
 
 
@@ -331,7 +452,7 @@ const Engine: React.FC = () => {
       <div className="max-w-2xl mx-auto py-12 px-4">
         <div className="mb-10 text-center">
           <h2 className="text-4xl font-poppins-bold text-slate-900 mb-4">Set Your Swap Engine</h2>
-          <p className="text-slate-500 font-poppins-regular">Tell us where you are and where you want to be.</p>
+          <p className="text-slate-500 font-poppins-regular">Tell us where you are, where you want to be, and whether you know of a vacancy nearby.</p>
         </div>
 
         <StepHeader current={step} />
@@ -585,9 +706,138 @@ const Engine: React.FC = () => {
 
           {step === 2 && (
             <div className="flex-1 space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-2xl font-poppins-bold text-slate-800 mb-1">Share Vacancy Alert</h3>
+                  <p className="text-sm text-slate-400 font-poppins-regular">Is there a vacancy in your compound or building that you know about?</p>
+                </div>
+                <div className="rounded-full border p-2 shadow-xl shadow-black/20">
+                  <Megaphone className="text-black" size={30} />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-poppins-medium text-slate-600 mb-3">Is there a vacancy?</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setHasVacancyAlert(true)}
+                    className={`rounded-2xl border p-5 text-left transition-all ${hasVacancyAlert === true ? 'border-emerald-500 bg-emerald-50 shadow-lg shadow-emerald-500/10' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
+                  >
+                    <span className="block text-sm font-poppins-bold text-slate-800">Yes, share a vacancy alert</span>
+                    <span className="block text-xs font-poppins-regular text-slate-500 mt-1">We will notify users looking for or already living in that area.</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHasVacancyAlert(false)}
+                    className={`rounded-2xl border p-5 text-left transition-all ${hasVacancyAlert === false ? 'border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/10' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
+                  >
+                    <span className={`block text-sm font-poppins-bold ${hasVacancyAlert === false ? 'text-white' : 'text-slate-800'}`}>No vacancy to share</span>
+                    <span className={`block text-xs font-poppins-regular mt-1 ${hasVacancyAlert === false ? 'text-slate-200' : 'text-slate-500'}`}>Skip this if you do not know of any apartment opening nearby.</span>
+                  </button>
+                </div>
+                <Err field="hasVacancyAlert" />
+              </div>
+
+              {hasVacancyAlert && (
+                <div className="space-y-6 rounded-3xl border border-emerald-100 bg-emerald-50/60 p-6">
+                  <div>
+                    <h4 className="text-lg font-poppins-bold text-slate-800">Vacancy Details</h4>
+                    <p className="text-sm text-slate-500 font-poppins-regular mt-1">Share only what you know about the possible vacancy.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Apartment Type</label>
+                      <select value={vacancyApartmentType} onChange={e => setVacancyApartmentType(e.target.value as PropertyType)} className={fc('vacancyApartmentType')}>
+                        <option value="No Option" disabled>Select type…</option>
+                        {PROPERTY_TYPES.filter(t => t !== 'No Option').map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <Err field="vacancyApartmentType" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-poppins-medium text-slate-600 mb-2">State</label>
+                      <select
+                        value={vacancyState}
+                        onChange={e => {
+                          setVacancyState(e.target.value as Location)
+                          setVacancyCity('')
+                          setVacancyArea('')
+                        }}
+                        className={fc('vacancyState')}
+                      >
+                        <option value="No Option" disabled>Select state…</option>
+                        {ALLOWED_SWAP_STATES.map(state => <option key={state} value={state}>{state}</option>)}
+                      </select>
+                      <Err field="vacancyState" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-poppins-medium text-slate-600 mb-2">City</label>
+                      <select
+                        value={vacancyCity}
+                        onChange={e => {
+                          setVacancyCity(e.target.value)
+                          setVacancyArea('')
+                        }}
+                        disabled={vacancyState === 'No Option'}
+                        className={fc('vacancyCity')}
+                      >
+                        <option value="" disabled>{vacancyState === 'No Option' ? 'Select state first…' : 'Select city…'}</option>
+                        {vacancyCities.map(city => <option key={city} value={city}>{city}</option>)}
+                      </select>
+                      <Err field="vacancyCity" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Area / Region</label>
+                      <select
+                        value={vacancyArea}
+                        onChange={e => setVacancyArea(e.target.value)}
+                        disabled={!vacancyCity || vacancyAreas.length === 0}
+                        className={fc('vacancyArea')}
+                      >
+                        <option value="" disabled>
+                          {!vacancyCity ? 'Select city first…' : vacancyAreas.length === 0 ? 'No areas configured yet' : 'Select area…'}
+                        </option>
+                        {vacancyAreas.map(area => <option key={area} value={area}>{area}</option>)}
+                      </select>
+                      <Err field="vacancyArea" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-poppins-medium text-slate-600 mb-3">
+                      Vacancy Features <span className="text-slate-400">(Select what applies)</span>
+                    </label>
+                    <div className={`grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-2xl transition-all ${errors.vacancyFeatures ? 'bg-red-50 border border-red-300' : ''}`}>
+                      {FEATURES.map(feat => (
+                        <label
+                          key={feat}
+                          className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all text-sm ${vacancyFeatures.includes(feat)
+                            ? 'bg-emerald-50 border-emerald-500 text-emerald-700 font-poppins-bold'
+                            : 'border-slate-200 text-slate-500 font-poppins-regular'
+                            }`}
+                        >
+                          <input type="checkbox" className="hidden" checked={vacancyFeatures.includes(feat)} onChange={() => toggleVacancyFeature(feat)} />
+                          {vacancyFeatures.includes(feat) ? <CheckSquare size={18} /> : <Square size={18} />}
+                          {feat}
+                        </label>
+                      ))}
+                    </div>
+                    <Err field="vacancyFeatures" />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="flex-1 space-y-6">
               <div>
                 <h3 className="text-2xl font-poppins-bold text-slate-800 mb-1">Confirm Your Swap</h3>
-                <p className="text-sm text-slate-400 font-poppins-regular">Review your details before we find your match.</p>
+                <p className="text-sm text-slate-400 font-poppins-regular">Review your details before we find your match and share any vacancy alert.</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -605,7 +855,7 @@ const Engine: React.FC = () => {
                   <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(currentState, currentCity, currentArea)}</p>
                   <p className="text-slate-500 font-poppins-regular text-sm">
                     {currentAvailable
-                      ? `Available ${currentAvailableOn ? new Date(currentAvailableOn).toLocaleDateString('en-NG', { dateStyle: 'medium' }) : '—'}`
+                      ? 'Available ' + (currentAvailableOn ? new Date(currentAvailableOn).toLocaleDateString('en-NG', { dateStyle: 'medium' }) : '—')
                       : 'Not currently available'}
                   </p>
                 </div>
@@ -620,6 +870,25 @@ const Engine: React.FC = () => {
                     </span>
                   ))}
                 </div>
+              </div>
+
+              <div className="bg-white border border-emerald-100 rounded-2xl p-5">
+                <p className="text-[10px] font-poppins-bold text-emerald-600 uppercase tracking-widest mb-3">Vacancy Alert</p>
+                {hasVacancyAlert ? (
+                  <>
+                    <p className="font-poppins-bold text-slate-800">{vacancyApartmentType}</p>
+                    <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(vacancyState, vacancyCity, vacancyArea)}</p>
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {vacancyFeatures.map(f => (
+                        <span key={f} className="text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1.5 rounded-lg font-poppins-medium">
+                          {f}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-500 font-poppins-regular">No vacancy alert will be shared with nearby users.</p>
+                )}
               </div>
             </div>
           )}
@@ -636,7 +905,7 @@ const Engine: React.FC = () => {
               </button>
             )}
 
-            {step < 2 ? (
+            {step < 3 ? (
               <button
                 type="button"
                 onClick={goNext}

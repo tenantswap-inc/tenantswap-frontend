@@ -1,7 +1,7 @@
 import { Check } from "lucide-react";
 import React from "react";
 
-const STEPS = ['Looking For', 'Leaving From', 'Confirm'];
+const STEPS = ['Looking For', 'Leaving From', 'Vacancy Alert', 'Confirm'];
 
 const StepHeader: React.FC<{ current: number }> = ({ current }) => (
   <div className="flex items-center justify-center mb-10">
