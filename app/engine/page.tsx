@@ -1,5 +1,6 @@
 "use client"
 import React, { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { PROPERTY_TYPES, TIMELINES, FEATURES } from '@/constants';
 import GuestLayout from '@/app/GuestLayout';
@@ -450,17 +451,35 @@ const Engine: React.FC = () => {
       )}
 
       <div className="max-w-2xl mx-auto py-12 px-4">
-        <div className="mb-10 text-center">
+        <motion.div
+          className="mb-10 text-center"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+        >
           <h2 className="text-4xl font-poppins-bold text-slate-900 mb-4">Set Your Swap Engine</h2>
           <p className="text-slate-500 font-poppins-regular">Tell us where you are, where you want to be, and whether you know of a vacancy nearby.</p>
-        </div>
+        </motion.div>
 
         <StepHeader current={step} />
 
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 min-h-[420px] flex flex-col">
+        <motion.div
+          className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 min-h-[420px] flex flex-col"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.34, ease: 'easeOut' }}
+        >
 
+          <AnimatePresence mode="wait" initial={false}>
           {step === 0 && (
-            <div className="flex-1 space-y-6">
+            <motion.div
+              key="step-0"
+              className="flex-1 space-y-6"
+              initial={{ opacity: 0, x: 28, y: 10 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              exit={{ opacity: 0, x: -28, y: -6 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="text-2xl font-poppins-bold text-slate-800 mb-1">Looking For</h3>
@@ -558,11 +577,18 @@ const Engine: React.FC = () => {
                   <Err field="timeline" />
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
 
           {step === 1 && (
-            <div className="flex-1 space-y-6">
+            <motion.div
+              key="step-1"
+              className="flex-1 space-y-6"
+              initial={{ opacity: 0, x: 28, y: 10 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              exit={{ opacity: 0, x: -28, y: -6 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="text-2xl font-poppins-bold text-slate-800 mb-1">Leaving From</h3>
@@ -701,11 +727,18 @@ const Engine: React.FC = () => {
                 </div>
                 <Err field="features" />
               </div>
-            </div>
+            </motion.div>
           )}
 
           {step === 2 && (
-            <div className="flex-1 space-y-6">
+            <motion.div
+              key="step-2"
+              className="flex-1 space-y-6"
+              initial={{ opacity: 0, x: 28, y: 10 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              exit={{ opacity: 0, x: -28, y: -6 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="text-2xl font-poppins-bold text-slate-800 mb-1">Share Vacancy Alert</h3>
@@ -830,11 +863,18 @@ const Engine: React.FC = () => {
                   </div>
                 </div>
               )}
-            </div>
+            </motion.div>
           )}
 
           {step === 3 && (
-            <div className="flex-1 space-y-6">
+            <motion.div
+              key="step-3"
+              className="flex-1 space-y-6"
+              initial={{ opacity: 0, x: 28, y: 10 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              exit={{ opacity: 0, x: -28, y: -6 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
               <div>
                 <h3 className="text-2xl font-poppins-bold text-slate-800 mb-1">Confirm Your Swap</h3>
                 <p className="text-sm text-slate-400 font-poppins-regular">Review your details before we find your match and share any vacancy alert.</p>
@@ -890,8 +930,9 @@ const Engine: React.FC = () => {
                   <p className="text-sm text-slate-500 font-poppins-regular">No vacancy alert will be shared with nearby users.</p>
                 )}
               </div>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
 
           <div className={`flex mt-8 pt-6 border-t border-slate-100 ${step > 0 ? 'justify-between' : 'justify-end'}`}>
             {step > 0 && (
@@ -933,7 +974,7 @@ const Engine: React.FC = () => {
               </button>
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
     </GuestLayout>
   )

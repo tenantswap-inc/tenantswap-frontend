@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Bell } from 'lucide-react'
 import { Alert } from '@heroui/alert'
 import { Logo } from './logo'
@@ -188,17 +189,6 @@ const Navbar: React.FC = () => {
 
     setNotificationOpen(false)
     setNotificationPulseActive(false)
-
-    if (notification.type.startsWith('INTEREST_') || notification.type === 'RENTER_CONFIRMED') {
-      router.push('/dashboard')
-      return
-    }
-
-    if (notification.type === 'VACANCY_ALERT_SHARED') {
-      router.push('/dashboard')
-      return
-    }
-
     router.push('/dashboard')
   }
 
@@ -316,28 +306,36 @@ const Navbar: React.FC = () => {
 
   return (
     <>
-      {toastNotification && (
-        <div className="fixed right-4 top-20 z-[100] w-full max-w-sm">
-          <Alert
-            color="success"
-            variant="solid"
-            isVisible
-            onClose={() => setToastNotification(null)}
-            classNames={{
-              base: 'shadow-2xl rounded-2xl border border-emerald-500/20 bg-emerald-500 animate-in fade-in slide-in-from-top-2 duration-300',
-            }}
+      <AnimatePresence>
+        {toastNotification ? (
+          <motion.div
+            initial={{ opacity: 0, y: -12, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            transition={{ duration: 0.24, ease: 'easeOut' }}
+            className="fixed right-4 top-20 z-[100] w-full max-w-sm"
           >
-            <div className="space-y-1">
-              <p className="text-sm font-poppins-bold text-white">{toastNotification.title}</p>
-              <p className="text-xs font-poppins-medium text-white/90">{toastNotification.message}</p>
-            </div>
-          </Alert>
-        </div>
-      )}
+            <Alert
+              color="success"
+              variant="solid"
+              isVisible
+              onClose={() => setToastNotification(null)}
+              classNames={{
+                base: 'rounded-2xl border border-emerald-500/20 bg-emerald-500 shadow-2xl',
+              }}
+            >
+              <div className="space-y-1">
+                <p className="text-sm font-poppins-bold text-white">{toastNotification.title}</p>
+                <p className="text-xs font-poppins-medium text-white/90">{toastNotification.message}</p>
+              </div>
+            </Alert>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
-      <nav className="bg-primary-green shadow-lg shadow-white/10 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
+      <nav className="sticky top-0 z-50 bg-primary-green shadow-lg shadow-white/10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
               <Logo />
             </Link>
@@ -346,116 +344,161 @@ const Navbar: React.FC = () => {
               {isLoggedIn ? (
                 <>
                   <div className="relative" ref={notificationPanelRef}>
-                    <button
+                    <motion.button
                       type="button"
                       onClick={() => {
                         setNotificationOpen((current) => !current)
                         setNotificationPulseActive(false)
                       }}
-                      className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/15 ${notificationPulseActive ? 'shadow-[0_0_0_10px_rgba(255,255,255,0.08)] ring-2 ring-white/30' : ''}`}
+                      whileHover={{ y: -1, scale: 1.02 }}
+                      whileTap={{ scale: 0.97 }}
+                      transition={{ duration: 0.2, ease: 'easeOut' }}
+                      className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition-all duration-300 hover:bg-white/15 ${notificationPulseActive ? 'ring-2 ring-white/30 shadow-[0_0_0_10px_rgba(255,255,255,0.08)]' : ''}`}
                       aria-label="Notifications"
                     >
                       <Bell size={18} className={notificationPulseActive ? 'animate-pulse' : ''} />
-                      {unreadCount > 0 && (
-                        <span className="absolute -right-1 -top-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-emerald-400 px-1.5 py-0.5 text-[10px] font-poppins-bold text-emerald-950">
-                          {unreadCount > 99 ? '99+' : unreadCount}
-                        </span>
-                      )}
-                    </button>
-
-                    {notificationOpen && (
-                      <div className="absolute right-0 top-12 w-96 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
-                          <div>
-                            <p className="text-sm font-poppins-bold text-slate-800">Notifications</p>
-                            <p className="mt-1 text-xs font-poppins-regular text-slate-500">
-                              {unreadCount > 0
-                                ? `You have ${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}.`
-                                : 'You are all caught up for now.'}
-                            </p>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => void handleMarkAllAsRead()}
-                            disabled={markingAllRead || unreadCount === 0}
-                            className="rounded-full border border-emerald-200 px-3 py-1 text-[11px] font-poppins-bold text-emerald-700 transition-all hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                      <AnimatePresence>
+                        {unreadCount > 0 ? (
+                          <motion.span
+                            initial={{ opacity: 0, scale: 0.6 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.7 }}
+                            transition={{ duration: 0.2, ease: 'easeOut' }}
+                            className="absolute -right-1 -top-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-emerald-400 px-1.5 py-0.5 text-[10px] font-poppins-bold text-emerald-950"
                           >
-                            {markingAllRead ? 'Saving...' : 'Mark all read'}
-                          </button>
-                        </div>
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </motion.span>
+                        ) : null}
+                      </AnimatePresence>
+                    </motion.button>
 
-                        <div className="max-h-96 overflow-y-auto px-4 py-3">
-                          {loadingNotifications ? (
-                            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
-                              <p className="text-sm font-poppins-bold text-slate-600">Loading notifications...</p>
-                            </div>
-                          ) : visibleNotifications.length > 0 ? (
-                            <div className="space-y-3">
-                              {visibleNotifications.map((notification) => (
-                                <button
-                                  key={notification.id}
-                                  type="button"
-                                  onClick={() => void handleOpenNotification(notification)}
-                                  className={`w-full rounded-2xl border px-3 py-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-md ${notification.readAt ? 'border-slate-100 bg-slate-50' : 'border-emerald-200 bg-emerald-50/70'}`}
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                      <p className="text-sm font-poppins-bold text-slate-700">{notification.title}</p>
-                                      <p className="mt-1 text-xs font-poppins-regular text-slate-500">{notification.message}</p>
-                                    </div>
-                                    {!notification.readAt && (
-                                      <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
-                                    )}
-                                  </div>
-                                  <p className="mt-2 text-[11px] font-poppins-medium text-slate-400">
-                                    {formatNotificationDate(notification.createdAt)}
-                                  </p>
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
-                              <p className="text-sm font-poppins-bold text-slate-600">No notifications yet</p>
-                              <p className="mt-1 text-xs font-poppins-regular text-slate-400">
-                                New alerts will appear here as they arrive.
+                    <AnimatePresence>
+                      {notificationOpen ? (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                          className="absolute right-0 top-12 w-96 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                        >
+                          <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                            <div>
+                              <p className="text-sm font-poppins-bold text-slate-800">Notifications</p>
+                              <p className="mt-1 text-xs font-poppins-regular text-slate-500">
+                                {unreadCount > 0
+                                  ? `You have ${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}.`
+                                  : 'You are all caught up for now.'}
                               </p>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+
+                            <motion.button
+                              type="button"
+                              onClick={() => void handleMarkAllAsRead()}
+                              disabled={markingAllRead || unreadCount === 0}
+                              whileHover={markingAllRead || unreadCount === 0 ? undefined : { y: -1 }}
+                              whileTap={markingAllRead || unreadCount === 0 ? undefined : { scale: 0.98 }}
+                              className="rounded-full border border-emerald-200 px-3 py-1 text-[11px] font-poppins-bold text-emerald-700 transition-all hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                            >
+                              {markingAllRead ? 'Saving...' : 'Mark all read'}
+                            </motion.button>
+                          </div>
+
+                          <div className="max-h-96 overflow-y-auto px-4 py-3">
+                            {loadingNotifications ? (
+                              <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center"
+                              >
+                                <p className="text-sm font-poppins-bold text-slate-600">Loading notifications...</p>
+                              </motion.div>
+                            ) : visibleNotifications.length > 0 ? (
+                              <motion.div layout className="space-y-3">
+                                {visibleNotifications.map((notification, index) => (
+                                  <motion.button
+                                    key={notification.id}
+                                    type="button"
+                                    onClick={() => void handleOpenNotification(notification)}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: index * 0.03, duration: 0.2 }}
+                                    whileHover={{ y: -2, boxShadow: '0 16px 28px rgba(15, 23, 42, 0.08)' }}
+                                    className={`w-full rounded-2xl border px-3 py-3 text-left transition-all ${notification.readAt ? 'border-slate-100 bg-slate-50' : 'border-emerald-200 bg-emerald-50/70'}`}
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div>
+                                        <p className="text-sm font-poppins-bold text-slate-700">{notification.title}</p>
+                                        <p className="mt-1 text-xs font-poppins-regular text-slate-500">{notification.message}</p>
+                                      </div>
+                                      {!notification.readAt ? (
+                                        <motion.span
+                                          initial={{ scale: 0.8 }}
+                                          animate={{ scale: 1 }}
+                                          className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500"
+                                        />
+                                      ) : null}
+                                    </div>
+                                    <p className="mt-2 text-[11px] font-poppins-medium text-slate-400">
+                                      {formatNotificationDate(notification.createdAt)}
+                                    </p>
+                                  </motion.button>
+                                ))}
+                              </motion.div>
+                            ) : (
+                              <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center"
+                              >
+                                <p className="text-sm font-poppins-bold text-slate-600">No notifications yet</p>
+                                <p className="mt-1 text-xs font-poppins-regular text-slate-400">
+                                  New alerts will appear here as they arrive.
+                                </p>
+                              </motion.div>
+                            )}
+                          </div>
+                        </motion.div>
+                      ) : null}
+                    </AnimatePresence>
                   </div>
 
-                  <Link
-                    href="/dashboard"
-                    className="bg-white text-primary-green px-5 py-2 rounded-lg font-poppins-bold transition-all duration-300 hover:-translate-y-0.5 text-sm"
-                  >
-                    Dashboard
-                  </Link>
-                  <button
+                  <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
+                    <Link
+                      href="/dashboard"
+                      className="rounded-lg bg-white px-5 py-2 text-sm font-poppins-bold text-primary-green transition-all duration-300"
+                    >
+                      Dashboard
+                    </Link>
+                  </motion.div>
+                  <motion.button
                     type="button"
                     onClick={handleLogout}
-                    className="bg-red-500/80 hover:bg-red-600 text-white px-5 py-2 rounded-lg font-poppins-bold transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="rounded-lg bg-red-500/80 px-5 py-2 text-sm font-poppins-bold text-white transition-all duration-300 hover:bg-red-600"
                   >
                     Logout
-                  </button>
+                  </motion.button>
                 </>
               ) : (
                 <>
-                  <Link
-                    href="/login"
-                    className={`bg-white font-poppins-bold text-primary-green px-5 py-2 rounded-lg text-sm shadow-sm transition-all duration-300 hover:-translate-y-0.5 ${isHome ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-1 pointer-events-none'}`}
-                  >
-                    Login
-                  </Link>
+                  <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
+                    <Link
+                      href="/login"
+                      className={`rounded-lg bg-white px-5 py-2 text-sm font-poppins-bold text-primary-green shadow-sm transition-all duration-300 ${isHome ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none -translate-y-1 opacity-0'}`}
+                    >
+                      Login
+                    </Link>
+                  </motion.div>
 
-                  <Link
-                    href="/register"
-                    className={`bg-white font-poppins-bold text-primary-green px-5 py-2 rounded-lg text-sm shadow-sm transition-all duration-300 hover:-translate-y-0.5 ${isHome ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-1 pointer-events-none'}`}
-                  >
-                    Get Started
-                  </Link>
+                  <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
+                    <Link
+                      href="/register"
+                      className={`rounded-lg bg-white px-5 py-2 text-sm font-poppins-bold text-primary-green shadow-sm transition-all duration-300 ${isHome ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none -translate-y-1 opacity-0'}`}
+                    >
+                      Get Started
+                    </Link>
+                  </motion.div>
                 </>
               )}
             </div>
