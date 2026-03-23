@@ -25,6 +25,7 @@ import MatchModal from '@/components/MatchingModal';
 import MatchCard from '@/components/MatchCard';
 import { Button, ButtonGroup } from '@heroui/react';
 import RequestListModal from '@/components/RequestListModal';
+import VacancyAlertModal from '@/components/VacancyAlertModal';
 import {
   LIVE_UPDATE_CUE_EVENT,
   LIVE_UPDATE_EVENT,
@@ -70,6 +71,8 @@ const Dashboard: React.FC = () => {
   const [processingInterestId, setProcessingInterestId] = useState<string | null>(null);
   const [requestAttentionActive, setRequestAttentionActive] = useState(false);
   const [requestAttentionPulseActive, setRequestAttentionPulseActive] = useState(false);
+  const [vacancyListing, setVacancyListing] = useState<UserSwapListing | null>(null);
+  const [vacancySaving, setVacancySaving] = useState(false);
   const previousIncomingOpenRequests = useRef(0);
   const requestAttentionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
@@ -255,7 +258,38 @@ const Dashboard: React.FC = () => {
       return;
     }
 
-    router.push('/engine');
+    router.push('/engine?from=dashboard');
+  };
+
+  const handleSaveVacancyAlert = async (listingId: string, vacancyAlert: {
+    apartmentType: string;
+    state: string;
+    city: string;
+    area: string | null;
+    features: string[];
+  } | null) => {
+    setVacancySaving(true);
+    try {
+      const token = localStorage.getItem('JWT_TOKEN');
+      const response = await Client.patch(
+        `/listings/${listingId}`,
+        { vacancyAlert },
+        { Authorization: `Bearer ${token}` },
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        setVacancyListing(null);
+        setSuccessMsg(vacancyAlert ? 'Vacancy alert updated.' : 'Vacancy alert removed.');
+        await readCurrentUser();
+        return;
+      }
+
+      setErrorMsg(response.data?.message ?? 'Unable to save this vacancy alert right now.');
+    } catch {
+      setErrorMsg('Unable to reach the server. Please try again.');
+    } finally {
+      setVacancySaving(false);
+    }
   };
 
   useEffect(() => {
@@ -384,7 +418,7 @@ const Dashboard: React.FC = () => {
               We need to know what you are leaving and what you are looking for to run the home matching algorithm.
             </p>
             <Link
-              href="/engine"
+              href="/engine?from=dashboard"
               className="bg-primary-green/90 text-white px-8 py-3 rounded-xl font-poppins-bold hover:bg-primary-green transition-all"
             >
               Enter Swap Details
@@ -469,6 +503,18 @@ const Dashboard: React.FC = () => {
         processingInterestId={processingInterestId}
       />
 
+      <VacancyAlertModal
+        open={!!vacancyListing}
+        listing={vacancyListing}
+        saving={vacancySaving}
+        onClose={() => {
+          if (!vacancySaving) {
+            setVacancyListing(null);
+          }
+        }}
+        onSave={handleSaveVacancyAlert}
+      />
+
       <div className="max-w-6xl mx-auto py-12 px-4">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
@@ -525,14 +571,6 @@ const Dashboard: React.FC = () => {
               >
                 Listings
               </Button>
-              <Button
-                isDisabled={!canCreateListing}
-                onPress={handleAddListing}
-                className="font-poppins-bold text-sm text-emerald-700 border-emerald-200 hover:bg-emerald-50 data-[hover=true]:bg-emerald-50 disabled:text-slate-300 disabled:border-slate-200 disabled:bg-white"
-                startContent={<Plus size={15} className={canCreateListing ? 'text-emerald-600' : 'text-slate-300'} />}
-              >
-                Add Listing
-              </Button>
               <Link href="/settings">
                 <Button
                   className="font-poppins-bold text-sm text-slate-600 border-slate-200 hover:bg-slate-50 data-[hover=true]:bg-slate-50"
@@ -588,6 +626,12 @@ const Dashboard: React.FC = () => {
                     </span>
                   )}
                   <button
+                    onClick={() => setVacancyListing(listing)}
+                    className="flex items-center gap-1.5 text-xs border border-emerald-200 px-3 py-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 font-poppins-medium transition-all"
+                  >
+                    <Bell size={13} /> {listing.vacancyAlert ? 'Edit Vacancy Alert' : 'Add Vacancy Alert'}
+                  </button>
+                  <button
                     onClick={() => setUpdateListing(listing)}
                     className="flex items-center gap-1.5 text-xs border border-slate-200 px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-50 font-poppins-medium transition-all"
                   >
@@ -639,6 +683,41 @@ const Dashboard: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {listing.vacancyAlert && (
+                <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-[10px] text-amber-600 font-poppins-bold uppercase tracking-widest mb-1">
+                        Vacancy Alert
+                      </p>
+                      <p className="text-sm font-poppins-bold text-slate-800">
+                        {listing.vacancyAlert.apartmentType} in {[listing.vacancyAlert.area, listing.vacancyAlert.city, listing.vacancyAlert.state].filter(Boolean).join(', ')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setVacancyListing(listing)}
+                      className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-amber-700 transition-all hover:bg-amber-100"
+                    >
+                      Edit Alert
+                    </button>
+                  </div>
+
+                  {listing.vacancyAlert.features.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {listing.vacancyAlert.features.map((feature) => (
+                        <span
+                          key={feature}
+                          className="text-[10px] bg-white border border-amber-200 text-amber-700 px-2 py-0.5 rounded-md font-poppins-medium"
+                        >
+                          {feature}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div>
                 <h4 className="text-sm font-poppins-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">

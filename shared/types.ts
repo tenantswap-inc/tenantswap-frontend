@@ -220,6 +220,16 @@ export interface MatchCandidate {
   targetListing: TargetListing;
 }
 
+export interface VacancyAlert {
+  id: string;
+  apartmentType: string;
+  state: string;
+  city: string;
+  area: string | null;
+  features: string[];
+  createdAt?: string;
+}
+
 export interface UserSwapListing {
   id: string;
   userId: string;
@@ -249,6 +259,7 @@ export interface UserSwapListing {
   autoSearchLastRunAt: string | null;
   autoSearchMatchedAt: string | null;
   createdAt: string;
+  vacancyAlert?: VacancyAlert | null;
   matchCount: number;
   matches: MatchCandidate[];
 }

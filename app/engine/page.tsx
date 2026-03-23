@@ -205,8 +205,8 @@ type AllErrors = Partial<Record<keyof Step1Values | keyof Step2Values | VacancyK
 const Engine: React.FC = () => {
   const router = useRouter()
   const { token } = useToken()
+  const [fromDashboard, setFromDashboard] = useState(false)
 
-  console.log('token', token)
 
   // ── Step 1 fields ──────────────────────────────────────────────────────────
   const [desiredType, setDesiredType] = useState<PropertyType>('No Option')
@@ -254,6 +254,10 @@ const Engine: React.FC = () => {
     const t = setTimeout(() => setAlertMsg(''), 4000)
     return () => clearTimeout(t)
   }, [alertMsg])
+
+  useEffect(() => {
+    setFromDashboard(window.location.search.includes('from=dashboard'))
+  }, [])
 
   const toggleFeature = (f: string) =>
     setSelectedFeatures(prev =>
@@ -335,6 +339,15 @@ const Engine: React.FC = () => {
     setErrors({})
     setAlertMsg('')
     setStep(s => s - 1)
+  }
+
+  const handleCancel = () => {
+    if (fromDashboard) {
+      router.push('/dashboard')
+      return
+    }
+
+    router.back()
   }
 
   // ── Submit ─────────────────────────────────────────────────────────────────
@@ -934,17 +947,29 @@ const Engine: React.FC = () => {
           )}
           </AnimatePresence>
 
-          <div className={`flex mt-8 pt-6 border-t border-slate-100 ${step > 0 ? 'justify-between' : 'justify-end'}`}>
-            {step > 0 && (
-              <button
-                type="button"
-                onClick={goBack}
-                disabled={loading}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-poppins-medium cursor-pointer transition-all duration-300 ease-out hover:bg-slate-50 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
-              >
-                <ChevronLeft size={18} /> Back
-              </button>
-            )}
+          <div className={`flex mt-8 pt-6 border-t border-slate-100 ${step > 0 || fromDashboard ? 'justify-between' : 'justify-end'}`}>
+            <div className="flex items-center gap-3">
+              {fromDashboard && (
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-poppins-medium cursor-pointer transition-all duration-300 ease-out hover:bg-slate-50 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                >
+                  <X size={18} /> Cancel
+                </button>
+              )}
+              {step > 0 && (
+                <button
+                  type="button"
+                  onClick={goBack}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-poppins-medium cursor-pointer transition-all duration-300 ease-out hover:bg-slate-50 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none"
+                >
+                  <ChevronLeft size={18} /> Back
+                </button>
+              )}
+            </div>
 
             {step < 3 ? (
               <button

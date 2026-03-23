@@ -51,6 +51,10 @@ const REQUEST_STATUS_STYLES: Record<UserSwapRequest['status'], { label: string; 
 const MatchCard: React.FC<Props> = ({ match, relatedRequest, onRequestAgain, setSelectedMatch }) => {
   const { targetListing: t, totalScore } = match
   const [showContact, setShowContact] = useState(false)
+
+  if (t.status !== 'ACTIVE') {
+    return null
+  }
   const requestStatus = relatedRequest ? REQUEST_STATUS_STYLES[relatedRequest.status] : null
   const canViewContact = relatedRequest?.status === 'CONTACT_APPROVED' && !!relatedRequest.owner.phone
   const canRequestAgain = relatedRequest?.status === 'DECLINED'
