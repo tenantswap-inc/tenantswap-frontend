@@ -33,7 +33,7 @@ const App: React.FC<Props> = ({ children }) => {
       <footer className="bg-black text-white py-8">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <p className="text-sm font-poppins-bold">
-            © 2026 HomeSwap Nigeria. Built for Tenants, by Tenants. Zero Agent
+            © 2026 TenantSwap Nigeria. Built for Tenants, by Tenants. Zero Agent
             Fees.
           </p>
         </div>

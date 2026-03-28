@@ -19,8 +19,13 @@ const PhoneVerifyRedirect: React.FC = () => {
 
   // ── verify on mount ────────────────────────────────────────────────────────
   useEffect(() => {
+    const existingToken = localStorage.getItem("JWT_TOKEN")
+    if (existingToken) {
+      router.replace("/dashboard")
+      return
+    }
+
     const token = params.get("token")
-    console.log("token", token)
 
     if (!token) {
       setState("missing")
@@ -29,7 +34,7 @@ const PhoneVerifyRedirect: React.FC = () => {
     }
 
     verifyToken(token)
-  }, [])
+  }, [params, router])
 
   // ── auto-redirect countdown when successful ────────────────────────────────
   useEffect(() => {

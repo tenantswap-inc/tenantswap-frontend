@@ -1,17 +1,40 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import GuestLayout from "@/app/GuestLayout"
 import { Mail, ArrowRight, CheckCircle2, Loader2 } from "lucide-react"
 import { Client } from "@/shared/utils/ApiClient"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 type PageState = "idle" | "loading" | "success" | "error"
 
 const ResendVerification: React.FC = () => {
+  const router = useRouter()
   const [email, setEmail]     = useState("")
   const [state, setState]     = useState<PageState>("idle")
   const [message, setMessage] = useState("")
+
+  useEffect(() => {
+    const token = localStorage.getItem('JWT_TOKEN')
+    if (token) {
+      router.replace('/dashboard')
+      return
+    }
+
+    const search = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+    const presetEmail = search?.get('email')?.trim() ?? ''
+    const sent = search?.get('sent') === '1'
+
+    if (presetEmail) {
+      setEmail(presetEmail)
+    }
+
+    if (presetEmail && sent) {
+      setState('success')
+      setMessage('Registration successful. Check your email for the verification link we just sent.')
+    }
+  }, [router])
 
   // ── submit ─────────────────────────────────────────────────────────────────
 

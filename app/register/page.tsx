@@ -99,10 +99,14 @@ const Register: React.FC = () => {
     if (!successMsg) return
     const timer = setTimeout(() => {
       setAlertMsg("")
-      router.push("/login")
-    }, 4000)
+      const email = (form.email || '').trim()
+      const target = email
+        ? `/resend-verification?email=${encodeURIComponent(email)}&sent=1`
+        : '/resend-verification'
+      router.replace(target)
+    }, 1500)
     return () => clearTimeout(timer)
-  }, [successMsg])
+  }, [successMsg, form.email, router])
 
 
   const update = (field: keyof FormData, value: any) =>
