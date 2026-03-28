@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, LogOut, LayoutDashboard, X, Menu } from 'lucide-react'
+import { Bell } from 'lucide-react'
 import { Alert } from '@heroui/alert'
 import { Logo } from './logo'
 import { useToken } from '@/shared/hooks/useToken'
@@ -90,27 +90,10 @@ const Navbar: React.FC = () => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [loadingNotifications, setLoadingNotifications] = useState(false)
   const [markingAllRead, setMarkingAllRead] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const notificationPanelRef = useRef<HTMLDivElement | null>(null)
   const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const visibleNotifications = useMemo(() => notifications.slice(0, 8), [notifications])
-
-  // Close mobile menu on route change
-  useEffect(() => {
-    setMobileMenuOpen(false)
-    setNotificationOpen(false)
-  }, [pathname])
-
-  // Prevent body scroll when mobile menu is open
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = ''
-    }
-    return () => { document.body.style.overflow = '' }
-  }, [mobileMenuOpen])
 
   const readUnreadCount = async () => {
     if (!token) {
@@ -165,7 +148,9 @@ const Navbar: React.FC = () => {
   }
 
   const handleMarkAllAsRead = async () => {
-    if (!token || unreadCount === 0) return
+    if (!token || unreadCount === 0) {
+      return
+    }
 
     setMarkingAllRead(true)
 
@@ -175,9 +160,9 @@ const Navbar: React.FC = () => {
       })
 
       if (response.status === 200 || response.status === 201) {
-        setNotifications((current) => current.map((n) => ({
-          ...n,
-          readAt: n.readAt ?? new Date().toISOString(),
+        setNotifications((current) => current.map((notification) => ({
+          ...notification,
+          readAt: notification.readAt ?? new Date().toISOString(),
         })))
         setUnreadCount(0)
       }
@@ -194,7 +179,9 @@ const Navbar: React.FC = () => {
 
       if (response.status === 200 || response.status === 201) {
         setNotifications((current) => current.map((item) => (
-          item.id === notification.id ? { ...item, readAt: new Date().toISOString() } : item
+          item.id === notification.id
+            ? { ...item, readAt: new Date().toISOString() }
+            : item
         )))
         setUnreadCount((current) => Math.max(0, current - 1))
       }
@@ -202,7 +189,6 @@ const Navbar: React.FC = () => {
 
     setNotificationOpen(false)
     setNotificationPulseActive(false)
-    setMobileMenuOpen(false)
     router.push('/dashboard')
   }
 
@@ -212,7 +198,7 @@ const Navbar: React.FC = () => {
         Authorization: `Bearer ${token}`,
       })
 
-      if ([200, 201, 401, 403].includes(response.status)) {
+      if (response.status === 200 || response.status === 201 || response.status === 401 || response.status === 403) {
         localStorage.removeItem('JWT_TOKEN')
         router.replace('/')
       }
@@ -222,28 +208,40 @@ const Navbar: React.FC = () => {
   }
 
   useEffect(() => {
-    if (!ready) return
+    if (!ready) {
+      return
+    }
+
     if (!token) {
       setUnreadCount(0)
       setNotifications([])
       setToastNotification(null)
       return
     }
+
     void Promise.all([readUnreadCount(), readNotifications()])
   }, [ready, token])
 
   useEffect(() => {
-    if (!token) return
+    if (!token) {
+      return
+    }
 
     const handleLiveUpdate = (event: Event) => {
       const detail = (event as CustomEvent<LiveUpdateEventDetail>).detail
-      if (!detail || detail.type !== 'notifications.updated') return
+
+      if (!detail || detail.type !== 'notifications.updated') {
+        return
+      }
 
       setToastNotification(buildNotificationToast(detail))
       setNotificationPulseActive(true)
       void Promise.all([readUnreadCount(), readNotifications()])
 
-      if (pulseTimeoutRef.current) clearTimeout(pulseTimeoutRef.current)
+      if (pulseTimeoutRef.current) {
+        clearTimeout(pulseTimeoutRef.current)
+      }
+
       pulseTimeoutRef.current = setTimeout(() => {
         setNotificationPulseActive(false)
         pulseTimeoutRef.current = null
@@ -251,6 +249,7 @@ const Navbar: React.FC = () => {
     }
 
     window.addEventListener(LIVE_UPDATE_EVENT, handleLiveUpdate as EventListener)
+
     return () => {
       window.removeEventListener(LIVE_UPDATE_EVENT, handleLiveUpdate as EventListener)
       if (pulseTimeoutRef.current) {
@@ -261,26 +260,35 @@ const Navbar: React.FC = () => {
   }, [token])
 
   useEffect(() => {
-    if (!notificationOpen || !token) return
+    if (!notificationOpen || !token) {
+      return
+    }
+
     void readNotifications()
   }, [notificationOpen, token])
 
   useEffect(() => {
-    if (!notificationOpen) return
+    if (!notificationOpen) {
+      return
+    }
 
     const handlePointerDown = (event: MouseEvent | PointerEvent) => {
       const target = event.target as Node | null
+
       if (notificationPanelRef.current && target && !notificationPanelRef.current.contains(target)) {
         setNotificationOpen(false)
       }
     }
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setNotificationOpen(false)
+      if (event.key === 'Escape') {
+        setNotificationOpen(false)
+      }
     }
 
     document.addEventListener('pointerdown', handlePointerDown)
     document.addEventListener('keydown', handleEscape)
+
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleEscape)
@@ -288,106 +296,24 @@ const Navbar: React.FC = () => {
   }, [notificationOpen])
 
   useEffect(() => {
-    if (!toastNotification) return
+    if (!toastNotification) {
+      return
+    }
+
     const timeout = setTimeout(() => setToastNotification(null), 4000)
     return () => clearTimeout(timeout)
   }, [toastNotification])
 
-  // ─── Notification Panel (shared between desktop dropdown & mobile sheet) ───
-  const NotificationPanel = ({ isMobile = false }: { isMobile?: boolean }) => (
-    <div className={isMobile ? 'flex flex-col h-full' : ''}>
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
-        <div>
-          <p className="text-sm font-poppins-bold text-slate-800">Notifications</p>
-          <p className="mt-1 text-xs font-poppins-regular text-slate-500">
-            {unreadCount > 0
-              ? `You have ${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}.`
-              : 'You are all caught up for now.'}
-          </p>
-        </div>
-        <motion.button
-          type="button"
-          onClick={() => void handleMarkAllAsRead()}
-          disabled={markingAllRead || unreadCount === 0}
-          whileHover={markingAllRead || unreadCount === 0 ? undefined : { y: -1 }}
-          whileTap={markingAllRead || unreadCount === 0 ? undefined : { scale: 0.98 }}
-          className="shrink-0 rounded-full border border-emerald-200 px-3 py-1 text-[11px] font-poppins-bold text-emerald-700 transition-all hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
-        >
-          {markingAllRead ? 'Saving...' : 'Mark all read'}
-        </motion.button>
-      </div>
-
-      {/* List */}
-      <div className={`overflow-y-auto px-4 py-3 ${isMobile ? 'flex-1' : 'max-h-96'}`}>
-        {loadingNotifications ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center"
-          >
-            <p className="text-sm font-poppins-bold text-slate-600">Loading notifications...</p>
-          </motion.div>
-        ) : visibleNotifications.length > 0 ? (
-          <motion.div layout className="space-y-3">
-            {visibleNotifications.map((notification, index) => (
-              <motion.button
-                key={notification.id}
-                type="button"
-                onClick={() => void handleOpenNotification(notification)}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.03, duration: 0.2 }}
-                whileHover={{ y: -2, boxShadow: '0 16px 28px rgba(15, 23, 42, 0.08)' }}
-                className={`w-full rounded-2xl border px-3 py-3 text-left transition-all ${notification.readAt ? 'border-slate-100 bg-slate-50' : 'border-emerald-200 bg-emerald-50/70'
-                  }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-poppins-bold text-slate-700">{notification.title}</p>
-                    <p className="mt-1 text-xs font-poppins-regular text-slate-500">{notification.message}</p>
-                  </div>
-                  {!notification.readAt && (
-                    <motion.span
-                      initial={{ scale: 0.8 }}
-                      animate={{ scale: 1 }}
-                      className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500"
-                    />
-                  )}
-                </div>
-                <p className="mt-2 text-[11px] font-poppins-medium text-slate-400">
-                  {formatNotificationDate(notification.createdAt)}
-                </p>
-              </motion.button>
-            ))}
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center"
-          >
-            <p className="text-sm font-poppins-bold text-slate-600">No notifications yet</p>
-            <p className="mt-1 text-xs font-poppins-regular text-slate-400">
-              New alerts will appear here as they arrive.
-            </p>
-          </motion.div>
-        )}
-      </div>
-    </div>
-  )
-
   return (
     <>
-      {/* ── Toast ── */}
       <AnimatePresence>
-        {toastNotification && (
+        {toastNotification ? (
           <motion.div
             initial={{ opacity: 0, y: -12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
             transition={{ duration: 0.24, ease: 'easeOut' }}
-            className="fixed right-4 top-20 z-[100] w-[calc(100vw-2rem)] max-w-sm"
+            className="fixed right-4 top-20 z-[100] w-full max-w-sm"
           >
             <Alert
               color="success"
@@ -404,41 +330,35 @@ const Navbar: React.FC = () => {
               </div>
             </Alert>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
 
-      {/* ── Navbar ── */}
-      <nav className="sticky top-0 z-40 bg-primary-green shadow-lg shadow-white/10">
+      <nav className="sticky top-0 z-50 bg-primary-green shadow-lg shadow-white/10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
-
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 shrink-0">
+            <Link href="/" className="flex items-center gap-2">
               <Logo />
             </Link>
 
-            {/* ── Desktop actions ── */}
-            <div className="hidden sm:flex items-center gap-3">
+            <div className="flex items-center gap-3">
               {isLoggedIn ? (
                 <>
-                  {/* Notification bell */}
                   <div className="relative" ref={notificationPanelRef}>
                     <motion.button
                       type="button"
                       onClick={() => {
-                        setNotificationOpen((c) => !c)
+                        setNotificationOpen((current) => !current)
                         setNotificationPulseActive(false)
                       }}
                       whileHover={{ y: -1, scale: 1.02 }}
                       whileTap={{ scale: 0.97 }}
                       transition={{ duration: 0.2, ease: 'easeOut' }}
-                      className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition-all duration-300 hover:bg-white/15 ${notificationPulseActive ? 'ring-2 ring-white/30 shadow-[0_0_0_10px_rgba(255,255,255,0.08)]' : ''
-                        }`}
+                      className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition-all duration-300 hover:bg-white/15 ${notificationPulseActive ? 'ring-2 ring-white/30 shadow-[0_0_0_10px_rgba(255,255,255,0.08)]' : ''}`}
                       aria-label="Notifications"
                     >
                       <Bell size={18} className={notificationPulseActive ? 'animate-pulse' : ''} />
                       <AnimatePresence>
-                        {unreadCount > 0 && (
+                        {unreadCount > 0 ? (
                           <motion.span
                             initial={{ opacity: 0, scale: 0.6 }}
                             animate={{ opacity: 1, scale: 1 }}
@@ -448,13 +368,12 @@ const Navbar: React.FC = () => {
                           >
                             {unreadCount > 99 ? '99+' : unreadCount}
                           </motion.span>
-                        )}
+                        ) : null}
                       </AnimatePresence>
                     </motion.button>
 
-                    {/* Desktop dropdown */}
                     <AnimatePresence>
-                      {notificationOpen && (
+                      {notificationOpen ? (
                         <motion.div
                           initial={{ opacity: 0, y: 10, scale: 0.98 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -462,9 +381,84 @@ const Navbar: React.FC = () => {
                           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                           className="absolute right-0 top-12 w-96 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
                         >
-                          <NotificationPanel />
+                          <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                            <div>
+                              <p className="text-sm font-poppins-bold text-slate-800">Notifications</p>
+                              <p className="mt-1 text-xs font-poppins-regular text-slate-500">
+                                {unreadCount > 0
+                                  ? `You have ${unreadCount} unread notification${unreadCount === 1 ? '' : 's'}.`
+                                  : 'You are all caught up for now.'}
+                              </p>
+                            </div>
+
+                            <motion.button
+                              type="button"
+                              onClick={() => void handleMarkAllAsRead()}
+                              disabled={markingAllRead || unreadCount === 0}
+                              whileHover={markingAllRead || unreadCount === 0 ? undefined : { y: -1 }}
+                              whileTap={markingAllRead || unreadCount === 0 ? undefined : { scale: 0.98 }}
+                              className="rounded-full border border-emerald-200 px-3 py-1 text-[11px] font-poppins-bold text-emerald-700 transition-all hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-300"
+                            >
+                              {markingAllRead ? 'Saving...' : 'Mark all read'}
+                            </motion.button>
+                          </div>
+
+                          <div className="max-h-96 overflow-y-auto px-4 py-3">
+                            {loadingNotifications ? (
+                              <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center"
+                              >
+                                <p className="text-sm font-poppins-bold text-slate-600">Loading notifications...</p>
+                              </motion.div>
+                            ) : visibleNotifications.length > 0 ? (
+                              <motion.div layout className="space-y-3">
+                                {visibleNotifications.map((notification, index) => (
+                                  <motion.button
+                                    key={notification.id}
+                                    type="button"
+                                    onClick={() => void handleOpenNotification(notification)}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: index * 0.03, duration: 0.2 }}
+                                    whileHover={{ y: -2, boxShadow: '0 16px 28px rgba(15, 23, 42, 0.08)' }}
+                                    className={`w-full rounded-2xl border px-3 py-3 text-left transition-all ${notification.readAt ? 'border-slate-100 bg-slate-50' : 'border-emerald-200 bg-emerald-50/70'}`}
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div>
+                                        <p className="text-sm font-poppins-bold text-slate-700">{notification.title}</p>
+                                        <p className="mt-1 text-xs font-poppins-regular text-slate-500">{notification.message}</p>
+                                      </div>
+                                      {!notification.readAt ? (
+                                        <motion.span
+                                          initial={{ scale: 0.8 }}
+                                          animate={{ scale: 1 }}
+                                          className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500"
+                                        />
+                                      ) : null}
+                                    </div>
+                                    <p className="mt-2 text-[11px] font-poppins-medium text-slate-400">
+                                      {formatNotificationDate(notification.createdAt)}
+                                    </p>
+                                  </motion.button>
+                                ))}
+                              </motion.div>
+                            ) : (
+                              <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center"
+                              >
+                                <p className="text-sm font-poppins-bold text-slate-600">No notifications yet</p>
+                                <p className="mt-1 text-xs font-poppins-regular text-slate-400">
+                                  New alerts will appear here as they arrive.
+                                </p>
+                              </motion.div>
+                            )}
+                          </div>
                         </motion.div>
-                      )}
+                      ) : null}
                     </AnimatePresence>
                   </div>
 
@@ -476,7 +470,6 @@ const Navbar: React.FC = () => {
                       Dashboard
                     </Link>
                   </motion.div>
-
                   <motion.button
                     type="button"
                     onClick={handleLogout}
@@ -492,8 +485,7 @@ const Navbar: React.FC = () => {
                   <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
                     <Link
                       href="/login"
-                        className={`rounded-lg bg-white px-5 py-2 text-sm font-poppins-bold text-primary-green shadow-sm transition-all duration-300 ${isHome ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none -translate-y-1 opacity-0'
-                          }`}
+                      className={`rounded-lg bg-white px-5 py-2 text-sm font-poppins-bold text-primary-green shadow-sm transition-all duration-300 ${isHome ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none -translate-y-1 opacity-0'}`}
                     >
                       Login
                     </Link>
@@ -502,8 +494,7 @@ const Navbar: React.FC = () => {
                   <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
                     <Link
                       href="/register"
-                        className={`rounded-lg bg-white px-5 py-2 text-sm font-poppins-bold text-primary-green shadow-sm transition-all duration-300 ${isHome ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none -translate-y-1 opacity-0'
-                          }`}
+                      className={`rounded-lg bg-white px-5 py-2 text-sm font-poppins-bold text-primary-green shadow-sm transition-all duration-300 ${isHome ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none -translate-y-1 opacity-0'}`}
                     >
                       Get Started
                     </Link>
@@ -511,153 +502,9 @@ const Navbar: React.FC = () => {
                 </>
               )}
             </div>
-
-            {/* ── Mobile right cluster ── */}
-            <div className="flex sm:hidden items-center gap-2">
-              {isLoggedIn && (
-                <motion.button
-                  type="button"
-                  onClick={() => {
-                    setNotificationOpen(false)
-                    setMobileMenuOpen((c) => !c)
-                  }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white ${notificationPulseActive ? 'ring-2 ring-white/30' : ''
-                    }`}
-                  aria-label="Notifications"
-                >
-                  <Bell size={17} className={notificationPulseActive ? 'animate-pulse' : ''} />
-                  <AnimatePresence>
-                    {unreadCount > 0 && (
-                      <motion.span
-                        initial={{ opacity: 0, scale: 0.6 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.7 }}
-                        className="absolute -right-1 -top-1 inline-flex min-w-[16px] items-center justify-center rounded-full bg-emerald-400 px-1 py-0.5 text-[9px] font-poppins-bold text-emerald-950"
-                      >
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                </motion.button>
-              )}
-
-              {/* Hamburger */}
-              <motion.button
-                type="button"
-                onClick={() => setMobileMenuOpen((c) => !c)}
-                whileTap={{ scale: 0.95 }}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white"
-                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-              >
-                <AnimatePresence mode="wait" initial={false}>
-                  {mobileMenuOpen ? (
-                    <motion.span key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }}>
-                      <X size={18} />
-                    </motion.span>
-                  ) : (
-                    <motion.span key="open" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }}>
-                      <Menu size={18} />
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </motion.button>
-            </div>
-
           </div>
         </div>
       </nav>
-
-      {/* ── Mobile drawer ── */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              key="backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm sm:hidden"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-
-            {/* Drawer panel */}
-            <motion.div
-              key="drawer"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              className="fixed right-0 top-0 z-50 flex h-full w-[min(85vw,360px)] flex-col bg-white shadow-2xl sm:hidden"
-            >
-              {/* Drawer header */}
-              <div className="flex items-center justify-between border-b border-slate-100 bg-primary-green px-4 py-4">
-                <Logo />
-                <button
-                  type="button"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white"
-                  aria-label="Close menu"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              {isLoggedIn ? (
-                <>
-                  {/* Notification section inside drawer */}
-                  <div className="flex-1 overflow-hidden">
-                    <NotificationPanel isMobile />
-                  </div>
-
-                  {/* Drawer footer actions */}
-                  <div className="border-t border-slate-100 p-4 space-y-2">
-                    <Link
-                      href="/dashboard"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center justify-center gap-2 w-full rounded-xl bg-primary-green px-4 py-3 text-sm font-poppins-bold text-white transition-all active:scale-[0.98]"
-                    >
-                      <LayoutDashboard size={16} />
-                      Dashboard
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => { setMobileMenuOpen(false); void handleLogout() }}
-                      className="flex items-center justify-center gap-2 w-full rounded-xl bg-red-500/90 px-4 py-3 text-sm font-poppins-bold text-white transition-all active:scale-[0.98] hover:bg-red-600"
-                    >
-                      <LogOut size={16} />
-                      Logout
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col gap-3 p-6">
-                  {isHome && (
-                    <>
-                      <Link
-                        href="/login"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center justify-center w-full rounded-xl border-2 border-primary-green px-4 py-3 text-sm font-poppins-bold text-primary-green transition-all active:scale-[0.98]"
-                      >
-                        Login
-                      </Link>
-                      <Link
-                        href="/register"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center justify-center w-full rounded-xl bg-primary-green px-4 py-3 text-sm font-poppins-bold text-white transition-all active:scale-[0.98]"
-                      >
-                        Get Started
-                      </Link>
-                    </>
-                  )}
-                </div>
-              )}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
     </>
   )
 }

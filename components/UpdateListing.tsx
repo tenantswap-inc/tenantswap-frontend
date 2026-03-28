@@ -681,7 +681,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
                   onClick={() => setListing(null)}
                   className="flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-poppins-medium cursor-pointer transition-all duration-300 ease-out hover:bg-slate-50 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] disabled:opacity-50"
                 >
-                  <ChevronLeft size={16} /> Back
+                  <ChevronLeft size={16} /> Back to Dashboard
                 </button>
               )
             }
@@ -708,7 +708,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
                   </>
                 ) : (
                   <>
-                        Save  <ChevronRight size={18} />
+                    Save Changes <ChevronRight size={18} />
                   </>
                 )}
               </button>

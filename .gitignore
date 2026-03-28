@@ -39,7 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-client_secret_*
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# OAuth client secrets
+client_secret_*.json
+dump.rdb

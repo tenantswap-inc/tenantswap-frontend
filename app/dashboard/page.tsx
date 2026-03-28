@@ -15,7 +15,6 @@ import {
   Bell,
   Plus,
   Settings,
-  ChevronDown,
 } from 'lucide-react';
 import { Client } from '@/shared/utils/ApiClient';
 import { useRouter } from 'next/navigation';
@@ -112,9 +111,14 @@ const Dashboard: React.FC = () => {
   const readCurrentUser = async () => {
     try {
       const token = localStorage.getItem('JWT_TOKEN');
-      if (!token) { router.replace('/login'); return; }
+      if (!token) {
+        router.replace('/login');
+        return;
+      }
 
-      const response = await Client.get('/users/me', {}, { Authorization: `Bearer ${token}` });
+      const response = await Client.get('/users/me', {}, {
+        Authorization: `Bearer ${token}`,
+      });
 
       if (response.status === 200) {
         setCurrentUser(response.data.data.user);
@@ -132,15 +136,27 @@ const Dashboard: React.FC = () => {
   const readOutgoingRequests = async () => {
     const token = localStorage.getItem('JWT_TOKEN');
     if (!token) return;
-    const response = await Client.get('/matching/interests/outgoing', {}, { Authorization: `Bearer ${token}` });
-    if (response.status === 200) setOutgoingRequests(response.data.data.requests ?? []);
+
+    const response = await Client.get('/matching/interests/outgoing', {}, {
+      Authorization: `Bearer ${token}`,
+    });
+
+    if (response.status === 200) {
+      setOutgoingRequests(response.data.data.requests ?? []);
+    }
   };
 
   const readIncomingRequests = async () => {
     const token = localStorage.getItem('JWT_TOKEN');
     if (!token) return;
-    const response = await Client.get('/matching/interests/incoming', {}, { Authorization: `Bearer ${token}` });
-    if (response.status === 200) setIncomingListings(response.data.data.listings ?? []);
+
+    const response = await Client.get('/matching/interests/incoming', {}, {
+      Authorization: `Bearer ${token}`,
+    });
+
+    if (response.status === 200) {
+      setIncomingListings(response.data.data.listings ?? []);
+    }
   };
 
   const readRequests = async () => {
@@ -164,8 +180,15 @@ const Dashboard: React.FC = () => {
         return;
       }
 
-      if (response.status === 403) { setErrorMsg('You do not have permission to connect with this listing.'); return; }
-      if (response.status === 429) { setErrorMsg('Too many requests. Please wait a moment and try again.'); return; }
+      if (response.status === 403) {
+        setErrorMsg('You do not have permission to connect with this listing.');
+        return;
+      }
+      if (response.status === 429) {
+        setErrorMsg('Too many requests. Please wait a moment and try again.');
+        return;
+      }
+
       setErrorMsg('Something went wrong. Please try again.');
     } catch {
       setErrorMsg('Unable to reach the server. Please try again.');
@@ -178,8 +201,18 @@ const Dashboard: React.FC = () => {
     setProcessingInterestId(interestId);
     try {
       const token = localStorage.getItem('JWT_TOKEN');
-      const response = await Client.post(`/matching/interests/${interestId}/approve`, {}, { Authorization: `Bearer ${token}` });
-      if (response.status === 200 || response.status === 201) { setSuccessMsg('Connection request approved.'); await readRequests(); return; }
+      const response = await Client.post(
+        `/matching/interests/${interestId}/approve`,
+        {},
+        { Authorization: `Bearer ${token}` },
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        setSuccessMsg('Connection request approved.');
+        await readRequests();
+        return;
+      }
+
       setErrorMsg(response.data?.message ?? 'Unable to approve this request right now.');
     } catch {
       setErrorMsg('Unable to reach the server. Please try again.');
@@ -192,8 +225,18 @@ const Dashboard: React.FC = () => {
     setProcessingInterestId(interestId);
     try {
       const token = localStorage.getItem('JWT_TOKEN');
-      const response = await Client.post(`/matching/interests/${interestId}/decline`, {}, { Authorization: `Bearer ${token}` });
-      if (response.status === 200 || response.status === 201) { setSuccessMsg('Connection request declined.'); await readRequests(); return; }
+      const response = await Client.post(
+        `/matching/interests/${interestId}/decline`,
+        {},
+        { Authorization: `Bearer ${token}` },
+      );
+
+      if (response.status === 200 || response.status === 201) {
+        setSuccessMsg('Connection request declined.');
+        await readRequests();
+        return;
+      }
+
       setErrorMsg(response.data?.message ?? 'Unable to decline this request right now.');
     } catch {
       setErrorMsg('Unable to reach the server. Please try again.');
@@ -203,7 +246,10 @@ const Dashboard: React.FC = () => {
   };
 
   const handleOpenListings = () => {
-    document.getElementById('listings-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('listings-section')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
   };
 
   const handleAddListing = () => {
@@ -211,6 +257,7 @@ const Dashboard: React.FC = () => {
       setErrorMsg('Free plan includes up to 2 listings. Upgrade to Premium for more.');
       return;
     }
+
     router.push('/engine?from=dashboard');
   };
 
@@ -224,13 +271,19 @@ const Dashboard: React.FC = () => {
     setVacancySaving(true);
     try {
       const token = localStorage.getItem('JWT_TOKEN');
-      const response = await Client.patch(`/listings/${listingId}`, { vacancyAlert }, { Authorization: `Bearer ${token}` });
+      const response = await Client.patch(
+        `/listings/${listingId}`,
+        { vacancyAlert },
+        { Authorization: `Bearer ${token}` },
+      );
+
       if (response.status === 200 || response.status === 201) {
         setVacancyListing(null);
         setSuccessMsg(vacancyAlert ? 'Vacancy alert updated.' : 'Vacancy alert removed.');
         await readCurrentUser();
         return;
       }
+
       setErrorMsg(response.data?.message ?? 'Unable to save this vacancy alert right now.');
     } catch {
       setErrorMsg('Unable to reach the server. Please try again.');
@@ -240,7 +293,9 @@ const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    readCurrentUser().then(readRequests).finally(() => setHydrated(true));
+    readCurrentUser()
+      .then(readRequests)
+      .finally(() => setHydrated(true));
   }, []);
 
   useEffect(() => {
@@ -249,21 +304,32 @@ const Dashboard: React.FC = () => {
   }, [openRequestList]);
 
   useEffect(() => {
-    if (openRequestList && pendingIncomingRequestCount > previousIncomingOpenRequests.current && pendingIncomingListings.length > 0) {
+    if (
+      openRequestList &&
+      pendingIncomingRequestCount > previousIncomingOpenRequests.current &&
+      pendingIncomingListings.length > 0
+    ) {
       setRequestTab('incoming');
     }
+
     previousIncomingOpenRequests.current = pendingIncomingRequestCount;
   }, [pendingIncomingRequestCount, openRequestList, pendingIncomingListings.length]);
 
   useEffect(() => {
     const handleLiveCue = (event: Event) => {
       const customEvent = event as CustomEvent<{ kind?: LiveUpdateCueKind }>;
-      if (customEvent.detail?.kind !== 'request') return;
+
+      if (customEvent.detail?.kind !== 'request') {
+        return;
+      }
 
       setRequestAttentionActive(true);
       setRequestAttentionPulseActive(true);
 
-      if (requestAttentionTimeoutRef.current) clearTimeout(requestAttentionTimeoutRef.current);
+      if (requestAttentionTimeoutRef.current) {
+        clearTimeout(requestAttentionTimeoutRef.current);
+      }
+
       requestAttentionTimeoutRef.current = setTimeout(() => {
         setRequestAttentionPulseActive(false);
         requestAttentionTimeoutRef.current = null;
@@ -271,16 +337,23 @@ const Dashboard: React.FC = () => {
     };
 
     window.addEventListener(LIVE_UPDATE_CUE_EVENT, handleLiveCue as EventListener);
+
     return () => {
       window.removeEventListener(LIVE_UPDATE_CUE_EVENT, handleLiveCue as EventListener);
-      if (requestAttentionTimeoutRef.current) clearTimeout(requestAttentionTimeoutRef.current);
+      if (requestAttentionTimeoutRef.current) {
+        clearTimeout(requestAttentionTimeoutRef.current);
+      }
     };
   }, []);
 
   useEffect(() => {
-    if (requestCount > 0) return;
+    if (requestCount > 0) {
+      return;
+    }
+
     setRequestAttentionActive(false);
     setRequestAttentionPulseActive(false);
+
     if (requestAttentionTimeoutRef.current) {
       clearTimeout(requestAttentionTimeoutRef.current);
       requestAttentionTimeoutRef.current = null;
@@ -290,13 +363,25 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const handleLiveUpdate = (event: Event) => {
       const detail = (event as CustomEvent<LiveUpdateEventDetail>).detail;
-      if (!detail) return;
-      if (detail.type === 'matches.updated' || detail.type === 'user.refresh') void readCurrentUser();
-      if (detail.type === 'interests.updated') void readRequests();
+
+      if (!detail) {
+        return;
+      }
+
+      if (detail.type === 'matches.updated' || detail.type === 'user.refresh') {
+        void readCurrentUser();
+      }
+
+      if (detail.type === 'interests.updated') {
+        void readRequests();
+      }
     };
 
     window.addEventListener(LIVE_UPDATE_EVENT, handleLiveUpdate as EventListener);
-    return () => window.removeEventListener(LIVE_UPDATE_EVENT, handleLiveUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener(LIVE_UPDATE_EVENT, handleLiveUpdate as EventListener);
+    };
   }, []);
 
   useEffect(() => {
@@ -320,23 +405,21 @@ const Dashboard: React.FC = () => {
 
   const activeListing = currentUser ? getActiveListing(currentUser.listings) : null;
 
-  // ── Empty state ────────────────────────────────────────────────────────────
   if (!currentUser || !activeListing) {
     return (
       <AuthLayout>
-        <div className="max-w-4xl mx-auto py-12 sm:py-20 px-4 text-center">
-          <div className="bg-white p-8 sm:p-12 rounded-3xl shadow-sm border border-slate-200">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <FilePlus size={32} className="sm:hidden" />
-              <FilePlus size={40} className="hidden sm:block" />
+        <div className="max-w-4xl mx-auto py-20 px-4 text-center">
+          <div className="bg-white p-12 rounded-3xl shadow-sm border border-slate-200">
+            <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <FilePlus size={40} />
             </div>
-            <h2 className="text-2xl sm:text-3xl font-poppins-bold mb-4">Setup Your Swap Engine</h2>
-            <p className="text-slate-500 font-poppins-regular mb-8 max-w-md mx-auto text-sm sm:text-base">
+            <h2 className="text-3xl font-poppins-bold mb-4">Setup Your Swap Engine</h2>
+            <p className="text-slate-500 font-poppins-regular mb-8 max-w-md mx-auto">
               We need to know what you are leaving and what you are looking for to run the home matching algorithm.
             </p>
             <Link
               href="/engine?from=dashboard"
-              className="inline-block bg-primary-green/90 text-white px-6 sm:px-8 py-3 rounded-xl font-poppins-bold hover:bg-primary-green transition-all text-sm sm:text-base"
+              className="bg-primary-green/90 text-white px-8 py-3 rounded-xl font-poppins-bold hover:bg-primary-green transition-all"
             >
               Enter Swap Details
             </Link>
@@ -359,37 +442,40 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // ── Toast helper class ─────────────────────────────────────────────────────
-  const toastClass = 'fixed top-4 right-4 left-4 sm:left-auto z-[9999] sm:w-full sm:max-w-md';
-
   return (
     <AuthLayout>
-      {/* Success toast */}
       {successMsg && (
-        <div className={toastClass}>
+        <div className="fixed top-6 right-6 z-[9999] w-full max-w-md">
           <Alert
             color="success"
             variant="solid"
             isVisible
-            onClose={() => setSuccessMsg('')}
-            classNames={{ base: 'shadow-2xl rounded-2xl border border-emerald-500/20 bg-emerald-500 animate-in fade-in slide-in-from-top-2 duration-300' }}
+            onClose={() => { setSuccessMsg(''); }}
+            classNames={{
+              base: 'shadow-2xl rounded-2xl border border-emerald-500/20 bg-emerald-500 animate-in fade-in slide-in-from-top-2 duration-300',
+            }}
           >
-            <span className="text-white font-poppins-bold">{successMsg}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-white font-poppins-bold">{successMsg}</span>
+            </div>
           </Alert>
         </div>
       )}
 
-      {/* Error toast */}
       {errorMsg && (
-        <div className={toastClass}>
+        <div className="fixed top-6 right-6 z-[9999] w-full max-w-md">
           <Alert
             color="danger"
             variant="solid"
             isVisible
-            onClose={() => setErrorMsg('')}
-            classNames={{ base: 'shadow-2xl rounded-2xl border border-red-500/20 bg-red-500 animate-in fade-in slide-in-from-top-2 duration-300' }}
+            onClose={() => { setErrorMsg(''); }}
+            classNames={{
+              base: 'shadow-2xl rounded-2xl border border-red-500/20 bg-red-500 animate-in fade-in slide-in-from-top-2 duration-300',
+            }}
           >
-            <span className="text-white font-poppins-bold">{errorMsg}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-white font-poppins-bold">{errorMsg}</span>
+            </div>
           </Alert>
         </div>
       )}
@@ -402,6 +488,7 @@ const Dashboard: React.FC = () => {
         onClose={() => setSelectedMatch(null)}
         onConnect={handleConnect}
       />
+
       <RequestListModal
         open={openRequestList}
         onClose={() => setOpenRequestList(false)}
@@ -415,155 +502,144 @@ const Dashboard: React.FC = () => {
         onDecline={handleDeclineInterest}
         processingInterestId={processingInterestId}
       />
+
       <VacancyAlertModal
         open={!!vacancyListing}
         listing={vacancyListing}
         saving={vacancySaving}
-        onClose={() => { if (!vacancySaving) setVacancyListing(null); }}
+        onClose={() => {
+          if (!vacancySaving) {
+            setVacancyListing(null);
+          }
+        }}
         onSave={handleSaveVacancyAlert}
       />
 
-      <div className="max-w-6xl mx-auto py-8 sm:py-12 px-4">
-
-        {/* ── Page header ─────────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-4 mb-8 sm:mb-12">
-          {/* Title row */}
+      <div className="max-w-6xl mx-auto py-12 px-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div>
             <p className="text-sm text-slate-500 font-poppins-medium mb-1">
-              Welcome back,{' '}
-              <span className="text-slate-700 font-poppins-bold">{currentUser.fullName}</span>
+              Welcome back, <span className="text-slate-700 font-poppins-bold">{currentUser.fullName}</span>
             </p>
-            <h2 className="text-2xl sm:text-4xl font-poppins-bold text-slate-900 tracking-tight">
+            <h2 className="text-4xl font-poppins-bold text-slate-900 tracking-tight">
               Your Swap Dashboard
             </h2>
           </div>
 
-          {/* Action buttons — scrollable on xs, normal on sm+ */}
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-            <div className="inline-flex min-w-max sm:min-w-0">
-              <ButtonGroup variant="bordered" radius="lg">
-                <Button
-                  onPress={() => {
-                    setRequestAttentionActive(false);
-                    setRequestAttentionPulseActive(false);
-                    if (requestAttentionTimeoutRef.current) {
-                      clearTimeout(requestAttentionTimeoutRef.current);
-                      requestAttentionTimeoutRef.current = null;
-                    }
-                    setRequestTab(pendingIncomingRequestCount > 0 ? 'incoming' : 'outgoing');
-                    setOpenRequestList(true);
-                  }}
-                  className={`relative overflow-visible font-poppins-bold text-sm text-slate-600 border-slate-200 transition-all duration-500 hover:bg-slate-50 data-[hover=true]:bg-slate-50 ${requestAttentionActive ? 'border-emerald-300 bg-emerald-50/80 text-emerald-700 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]' : ''} ${requestAttentionPulseActive ? 'shadow-[0_0_0_8px_rgba(16,185,129,0.18)]' : ''}`}
-                  startContent={<Bell size={15} className={requestAttentionActive ? 'text-emerald-600' : 'text-slate-400'} />}
-                  endContent={
-                    requestCount > 0 && (
-                      <span className="relative flex min-w-[18px] items-center justify-center">
-                        {requestAttentionPulseActive && (
-                          <>
-                            <span className="absolute inset-0 rounded-full bg-emerald-400/30 animate-ping" />
-                            <span className="absolute -inset-1 rounded-full border border-emerald-300/80 animate-ping [animation-delay:220ms]" />
-                          </>
-                        )}
-                        <span className={`relative rounded-full bg-emerald-500 px-1.5 py-0.5 text-center text-[10px] font-poppins-bold text-white transition-transform duration-500 ${requestAttentionPulseActive ? 'scale-110' : ''}`}>
-                          {requestCount}
-                        </span>
+          <div className="flex items-center justify-between mb-6">
+            <ButtonGroup variant="bordered" radius="lg">
+              <Button
+                onPress={() => {
+                  setRequestAttentionActive(false);
+                  setRequestAttentionPulseActive(false);
+                  if (requestAttentionTimeoutRef.current) {
+                    clearTimeout(requestAttentionTimeoutRef.current);
+                    requestAttentionTimeoutRef.current = null;
+                  }
+                  setRequestTab(pendingIncomingRequestCount > 0 ? 'incoming' : 'outgoing');
+                  setOpenRequestList(true);
+                }}
+                className={`relative overflow-visible font-poppins-bold text-sm text-slate-600 border-slate-200 transition-all duration-500 hover:bg-slate-50 data-[hover=true]:bg-slate-50 ${requestAttentionActive ? 'border-emerald-300 bg-emerald-50/80 text-emerald-700 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]' : ''} ${requestAttentionPulseActive ? 'shadow-[0_0_0_8px_rgba(16,185,129,0.18)]' : ''}`}
+                startContent={<Bell size={15} className={requestAttentionActive ? 'text-emerald-600' : 'text-slate-400'} />}
+                endContent={
+                  requestCount > 0 && (
+                    <span className="relative flex min-w-[18px] items-center justify-center">
+                      {requestAttentionPulseActive && (
+                        <>
+                          <span className="absolute inset-0 rounded-full bg-emerald-400/30 animate-ping" />
+                          <span className="absolute -inset-1 rounded-full border border-emerald-300/80 animate-ping [animation-delay:220ms]" />
+                        </>
+                      )}
+                      <span className={`relative rounded-full bg-emerald-500 px-1.5 py-0.5 text-center text-[10px] font-poppins-bold text-white transition-transform duration-500 ${requestAttentionPulseActive ? 'scale-110' : ''}`}>
+                        {requestCount}
                       </span>
-                    )
-                  }
-                >
-                  Requests
-                </Button>
-                <Button
-                  onPress={handleOpenListings}
-                  className="font-poppins-bold text-sm text-slate-600 border-slate-200 hover:bg-slate-50 data-[hover=true]:bg-slate-50"
-                  startContent={<Home size={15} className="text-slate-400" />}
-                  endContent={
-                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-poppins-bold text-slate-500">
-                      {listingCount}
                     </span>
-                  }
+                  )
+                }
+              >
+                Requests
+              </Button>
+              <Button
+                onPress={handleOpenListings}
+                className="font-poppins-bold text-sm text-slate-600 border-slate-200 hover:bg-slate-50 data-[hover=true]:bg-slate-50"
+                startContent={<Home size={15} className="text-slate-400" />}
+                endContent={
+                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-poppins-bold text-slate-500">
+                    {listingCount}
+                  </span>
+                }
+              >
+                Listings
+              </Button>
+              <Link href="/settings">
+                <Button
+                  className="font-poppins-bold text-sm text-slate-600 border-slate-200 hover:bg-slate-50 data-[hover=true]:bg-slate-50"
+                  startContent={<Settings size={15} className="text-slate-400" />}
                 >
-                  Listings
+                  Settings
                 </Button>
-                <Link href="/settings">
-                  <Button
-                    className="font-poppins-bold text-sm text-slate-600 border-slate-200 hover:bg-slate-50 data-[hover=true]:bg-slate-50"
-                    startContent={<Settings size={15} className="text-slate-400" />}
-                  >
-                    Settings
-                  </Button>
-                </Link>
-              </ButtonGroup>
-            </div>
+              </Link>
+            </ButtonGroup>
           </div>
         </div>
 
-        {/* ── Listings header ──────────────────────────────────────────────── */}
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" id="listings-section">
+        <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between" id="listings-section">
           <div>
             <h3 className="text-xl font-poppins-bold text-slate-800">Your Listings</h3>
             <p className="mt-1 text-sm font-poppins-regular text-slate-500">
               {listingCount}/{maxFreeListings} free listings used. Add up to two listings on the free plan.
             </p>
           </div>
+
           <button
             type="button"
             onClick={handleAddListing}
             disabled={!canCreateListing}
-            className="self-start sm:self-auto inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-poppins-bold text-emerald-700 transition-all hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-poppins-bold text-emerald-700 transition-all hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
           >
             <Plus size={15} /> Add Listing
           </button>
         </div>
 
         {!canCreateListing && (
-          <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            <span className="font-poppins-bold">Free plan includes up to 2 listings.</span>{' '}
-            Upgrade to Premium for more.
+          <div className="mb-10 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <span className="font-poppins-bold">Free plan includes up to 2 listings.</span> Upgrade to Premium for more.
           </div>
         )}
 
-        {/* ── Listings list ────────────────────────────────────────────────── */}
         <div className="space-y-12">
-          {currentUser.listings.map((listing, listingIndex) => (
+          {currentUser.listings.map((listing) => (
             <div key={listing.id}>
-
-              {/* Listing header */}
-              <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-start sm:justify-between">
-                {/* Title + status */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-base sm:text-lg font-poppins-bold text-slate-700">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-poppins-bold text-slate-700">
                     {listing.currentType} → {listing.desiredType}
                   </h3>
                   <span className={`text-xs font-poppins-bold px-2 py-1 rounded-full ${STATUS_COLORS[listing.status]}`}>
                     {listing.status}
                   </span>
+                </div>
+                <div className="flex items-center gap-3">
                   {listing.expiresAt && (
                     <span className="text-xs text-amber-500 font-poppins-medium flex items-center gap-1">
                       <Clock4 size={11} /> Expires {formatDate(listing.expiresAt)}
                     </span>
                   )}
-                </div>
-
-                {/* Action buttons — wrap on mobile */}
-                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setVacancyListing(listing)}
-                    className="flex items-center gap-1.5 text-xs border border-emerald-200 px-3 py-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 font-poppins-medium transition-all whitespace-nowrap"
+                    className="flex items-center gap-1.5 text-xs border border-emerald-200 px-3 py-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 font-poppins-medium transition-all"
                   >
-                    <Bell size={13} />
-                    {listing.vacancyAlert ? 'Edit Alert' : 'Vacancy Alert'}
+                    <Bell size={13} /> {listing.vacancyAlert ? 'Edit Vacancy Alert' : 'Add Vacancy Alert'}
                   </button>
                   <button
                     onClick={() => setUpdateListing(listing)}
-                    className="flex items-center gap-1.5 text-xs border border-slate-200 px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-50 font-poppins-medium transition-all whitespace-nowrap"
+                    className="flex items-center gap-1.5 text-xs border border-slate-200 px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-50 font-poppins-medium transition-all"
                   >
                     <Edit2 size={13} /> Edit
                   </button>
                 </div>
               </div>
 
-              {/* Listing summary card */}
               <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 mb-6">
                 <div className="flex-1">
                   <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">Leaving</p>
@@ -578,12 +654,8 @@ const Dashboard: React.FC = () => {
                   )}
                 </div>
 
-                {/* Arrow: horizontal on sm+, hidden on xs (vertical flow is implicit) */}
                 <div className="hidden sm:flex items-center text-emerald-400">
                   <ArrowRight size={18} />
-                </div>
-                <div className="flex sm:hidden items-center text-emerald-300">
-                  <ChevronDown size={16} />
                 </div>
 
                 <div className="flex-1">
@@ -612,25 +684,26 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
 
-              {/* Vacancy alert card */}
               {listing.vacancyAlert && (
                 <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-[10px] text-amber-600 font-poppins-bold uppercase tracking-widest mb-1">Vacancy Alert</p>
+                      <p className="text-[10px] text-amber-600 font-poppins-bold uppercase tracking-widest mb-1">
+                        Vacancy Alert
+                      </p>
                       <p className="text-sm font-poppins-bold text-slate-800">
-                        {listing.vacancyAlert.apartmentType} in{' '}
-                        {[listing.vacancyAlert.area, listing.vacancyAlert.city, listing.vacancyAlert.state].filter(Boolean).join(', ')}
+                        {listing.vacancyAlert.apartmentType} in {[listing.vacancyAlert.area, listing.vacancyAlert.city, listing.vacancyAlert.state].filter(Boolean).join(', ')}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setVacancyListing(listing)}
-                      className="self-start inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-amber-700 transition-all hover:bg-amber-100 whitespace-nowrap"
+                      className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-amber-700 transition-all hover:bg-amber-100"
                     >
                       Edit Alert
                     </button>
                   </div>
+
                   {listing.vacancyAlert.features.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {listing.vacancyAlert.features.map((feature) => (
@@ -646,7 +719,6 @@ const Dashboard: React.FC = () => {
                 </div>
               )}
 
-              {/* Matches */}
               <div>
                 <h4 className="text-sm font-poppins-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                   Potential Matches
@@ -670,9 +742,9 @@ const Dashboard: React.FC = () => {
                     ))}
                   </div>
                 ) : (
-                    <div className="bg-white p-8 sm:p-10 rounded-2xl border border-dashed border-slate-200 text-center">
+                  <div className="bg-white p-10 rounded-2xl border border-dashed border-slate-200 text-center">
                     <div className="text-slate-200 flex justify-center mb-3">
-                        <Link2Off size={36} />
+                      <Link2Off size={40} />
                     </div>
                     <p className="text-slate-400 font-poppins-bold text-sm">No matches yet</p>
                     <p className="text-slate-300 font-poppins-regular text-xs mt-1">
@@ -682,40 +754,35 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
 
-              {listingIndex < currentUser.listings.length - 1 && (
+              {currentUser.listings.indexOf(listing) < currentUser.listings.length - 1 && (
                 <div className="border-b border-slate-100 mt-12" />
               )}
             </div>
           ))}
         </div>
 
-        {/* ── Swap Protocol banner ─────────────────────────────────────────── */}
-        <div className="mt-16 sm:mt-20 bg-slate-900 text-white p-8 sm:p-12 rounded-[2rem] sm:rounded-[2.5rem] relative overflow-hidden">
+        <div className="mt-20 bg-slate-900 text-white p-12 rounded-[2.5rem] relative overflow-hidden">
           <div className="relative z-10 max-w-2xl">
-            <h3 className="text-2xl sm:text-3xl font-poppins-bold mb-4">The Swap Protocol</h3>
-            <p className="text-slate-400 font-poppins-regular leading-relaxed mb-6 sm:mb-8 text-sm sm:text-base">
+            <h3 className="text-3xl font-poppins-bold mb-4">The Swap Protocol</h3>
+            <p className="text-slate-400 font-poppins-regular leading-relaxed mb-8">
               TenantSwap only facilitates the connection. Once you connect with others in your home match,
               you should collectively contact your respective landlords or property managers to handle the paperwork.
             </p>
-            <div className="flex gap-3 sm:gap-4">
-              <div className="bg-emerald-600/20 text-emerald-400 p-3 sm:p-4 rounded-2xl border border-emerald-600/30">
-                <ShieldCheck size={20} className="mb-2 sm:hidden" />
-                <ShieldCheck size={24} className="hidden sm:block mb-2" />
-                <p className="text-[10px] sm:text-xs font-poppins-bold uppercase">Safe Swapping</p>
+            <div className="flex gap-4">
+              <div className="bg-emerald-600/20 text-emerald-400 p-4 rounded-2xl border border-emerald-600/30">
+                <ShieldCheck size={24} className="mb-2" />
+                <p className="text-xs font-poppins-bold uppercase">Safe Swapping</p>
               </div>
-              <div className="bg-slate-800 text-slate-400 p-3 sm:p-4 rounded-2xl border border-slate-700">
-                <FileText size={20} className="mb-2 sm:hidden" />
-                <FileText size={24} className="hidden sm:block mb-2" />
-                <p className="text-[10px] sm:text-xs font-poppins-bold uppercase">Legal Advice</p>
+              <div className="bg-slate-800 text-slate-400 p-4 rounded-2xl border border-slate-700">
+                <FileText size={24} className="mb-2" />
+                <p className="text-xs font-poppins-bold uppercase">Legal Advice</p>
               </div>
             </div>
           </div>
           <div className="absolute -bottom-20 -right-20 opacity-10 pointer-events-none">
-            <Home size={220} className="sm:hidden" />
-            <Home size={320} className="hidden sm:block" />
+            <Home size={320} />
           </div>
         </div>
-
       </div>
     </AuthLayout>
   );
