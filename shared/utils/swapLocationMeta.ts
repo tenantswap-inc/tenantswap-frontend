@@ -45,7 +45,7 @@ const SWAP_AREAS_BY_CITY: Record<AllowedSwapState, Partial<Record<string, string
     'Igando': ['Iyana Era', 'Ikotun Road', 'Pako', 'Lasu-Iba Axis', 'Egbe Road'],
   },
   Ondo: {
-    'Akure': ['Alagbaka', 'Ijapo', 'Oda', 'Oba Ile', 'Ijoka'],
+    'Akure': ['Alagbaka', 'Ijapo', 'Oda', 'Oba Ile', 'Ijoka', 'Oke Aro', 'Isikan', 'FUTA Road', 'Oyemekun Road', 'Oke Ogba', 'Shagari Village', 'Oke Ijebu', 'Adegbola', 'Secretariat Area', 'Eleganza', 'Oke Eda', 'Idanre Road Axis', 'Ondo Road Axis', 'Ilesha Garage'],
     'Ondo City': ['Fagun', 'Yaba', 'Sabo', 'Ayeyemi', 'Loro'],
     'Owo': ['Iyere', 'Isuada', 'Rufus Giwa Axis', 'Ehinogbe', 'Ipele Road'],
     'Ikare': ['Oka Road', 'Arigidi Axis', 'Igbede', 'Oyinmo', 'Okela'],
