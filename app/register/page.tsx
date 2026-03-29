@@ -58,6 +58,7 @@ const Register: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [registeredUser, setRegisteredUser] = useState<RegisteredUser | null>(null)
   const [form, setForm] = useState<FormData>({
     fullName: "",
@@ -148,6 +149,7 @@ const Register: React.FC = () => {
   }
 
   const handleOnboardingComplete = async (updatedUser: RegisteredUser) => {
+    setIsSubmitting(true)
     try {
 
       const response = await Client.post("/auth/register", {
@@ -193,6 +195,8 @@ const Register: React.FC = () => {
       } else {
         setAlertMsg("Network error. Please try again.")
       }
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -215,7 +219,7 @@ const Register: React.FC = () => {
           onCloseSuccess={() => setSuccessMsg("")}
         />
 
-        <Onboarding currentUser={registeredUser} onComplete={handleOnboardingComplete} />
+        <Onboarding currentUser={registeredUser} onComplete={handleOnboardingComplete} isLoading={isSubmitting} />
       </GuestLayout>
     )
   }

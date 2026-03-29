@@ -695,6 +695,11 @@ const Engine: React.FC = () => {
                     onChange={e => setCurrentAvailableOn(e.target.value)}
                     className={fc('currentAvailableOn')}
                   />
+                  {!currentAvailable && currentAvailable !== null && (
+                    <p className="text-xs font-poppins-regular text-slate-400 mt-1">
+                      Select "Yes, it is available" above to set a date.
+                    </p>
+                  )}
                   <Err field="currentAvailableOn" />
                 </div>
               </div>
@@ -947,7 +952,7 @@ const Engine: React.FC = () => {
           )}
           </AnimatePresence>
 
-          <div className={`flex mt-8 pt-6 border-t border-slate-100 ${step > 0 || fromDashboard ? 'justify-between' : 'justify-end'}`}>
+          <div className={`flex flex-wrap gap-3 mt-8 pt-6 border-t border-slate-100 ${step > 0 || fromDashboard ? 'justify-between' : 'justify-end'}`}>
             <div className="flex items-center gap-3">
               {fromDashboard && (
                 <button
