@@ -9,7 +9,7 @@ import { Alert } from '@heroui/alert'
 import { Logo } from './logo'
 import { useToken } from '@/shared/hooks/useToken'
 import { Client } from '@/shared/utils/ApiClient'
-import { LIVE_UPDATE_EVENT, type LiveUpdateEventDetail } from '@/shared/utils/liveUpdates'
+import { LIVE_UPDATE_EVENT, playLiveUpdateSound, type LiveUpdateEventDetail } from '@/shared/utils/liveUpdates'
 
 type NotificationItem = {
   id: string
@@ -93,6 +93,7 @@ const Navbar: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const notificationPanelRef = useRef<HTMLDivElement | null>(null)
   const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const notificationSoundIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const visibleNotifications = useMemo(() => notifications.slice(0, 8), [notifications])
 
@@ -248,6 +249,11 @@ const Navbar: React.FC = () => {
         setNotificationPulseActive(false)
         pulseTimeoutRef.current = null
       }, 2400)
+
+      if (notificationSoundIntervalRef.current) clearInterval(notificationSoundIntervalRef.current)
+      notificationSoundIntervalRef.current = setInterval(() => {
+        playLiveUpdateSound('notification')
+      }, 4000)
     }
 
     window.addEventListener(LIVE_UPDATE_EVENT, handleLiveUpdate as EventListener)
@@ -257,12 +263,20 @@ const Navbar: React.FC = () => {
         clearTimeout(pulseTimeoutRef.current)
         pulseTimeoutRef.current = null
       }
+      if (notificationSoundIntervalRef.current) {
+        clearInterval(notificationSoundIntervalRef.current)
+        notificationSoundIntervalRef.current = null
+      }
     }
   }, [token])
 
   useEffect(() => {
     if (!notificationOpen || !token) return
     void readNotifications()
+    if (notificationSoundIntervalRef.current) {
+      clearInterval(notificationSoundIntervalRef.current)
+      notificationSoundIntervalRef.current = null
+    }
   }, [notificationOpen, token])
 
   useEffect(() => {

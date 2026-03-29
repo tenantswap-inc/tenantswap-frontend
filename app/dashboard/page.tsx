@@ -31,6 +31,8 @@ import {
   LIVE_UPDATE_CUE_EVENT,
   LIVE_UPDATE_EVENT,
   LiveUpdateCueKind,
+  suppressNextInterestSound,
+  playLiveUpdateSound,
   type LiveUpdateEventDetail,
 } from '@/shared/utils/liveUpdates';
 
@@ -76,6 +78,7 @@ const Dashboard: React.FC = () => {
   const [vacancySaving, setVacancySaving] = useState(false);
   const previousIncomingOpenRequests = useRef(0);
   const requestAttentionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestSoundIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const router = useRouter();
 
   const pendingIncomingListings = useMemo(
@@ -149,6 +152,7 @@ const Dashboard: React.FC = () => {
 
   const handleConnect = async (targetListingId: string) => {
     setConnecting(true);
+    suppressNextInterestSound();
     try {
       const token = localStorage.getItem('JWT_TOKEN');
       const response = await Client.post(
@@ -268,14 +272,27 @@ const Dashboard: React.FC = () => {
         setRequestAttentionPulseActive(false);
         requestAttentionTimeoutRef.current = null;
       }, 2400);
+
+      if (requestSoundIntervalRef.current) clearInterval(requestSoundIntervalRef.current);
+      requestSoundIntervalRef.current = setInterval(() => {
+        playLiveUpdateSound('request');
+      }, 4000);
     };
 
     window.addEventListener(LIVE_UPDATE_CUE_EVENT, handleLiveCue as EventListener);
     return () => {
       window.removeEventListener(LIVE_UPDATE_CUE_EVENT, handleLiveCue as EventListener);
       if (requestAttentionTimeoutRef.current) clearTimeout(requestAttentionTimeoutRef.current);
+      if (requestSoundIntervalRef.current) clearInterval(requestSoundIntervalRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (openRequestList && requestSoundIntervalRef.current) {
+      clearInterval(requestSoundIntervalRef.current);
+      requestSoundIntervalRef.current = null;
+    }
+  }, [openRequestList]);
 
   useEffect(() => {
     if (requestCount > 0) return;
@@ -284,6 +301,10 @@ const Dashboard: React.FC = () => {
     if (requestAttentionTimeoutRef.current) {
       clearTimeout(requestAttentionTimeoutRef.current);
       requestAttentionTimeoutRef.current = null;
+    }
+    if (requestSoundIntervalRef.current) {
+      clearInterval(requestSoundIntervalRef.current);
+      requestSoundIntervalRef.current = null;
     }
   }, [requestCount]);
 
@@ -426,7 +447,7 @@ const Dashboard: React.FC = () => {
       <div className="max-w-6xl mx-auto py-8 sm:py-12 px-4">
 
         {/* ── Page header ─────────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-4 mb-8 sm:mb-12">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 sm:mb-12">
           {/* Title row */}
           <div>
             <p className="text-sm text-slate-500 font-poppins-medium mb-1">
@@ -439,7 +460,7 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Action buttons — scrollable on xs, normal on sm+ */}
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-shrink-0">
             <div className="inline-flex min-w-max sm:min-w-0">
               <ButtonGroup variant="bordered" radius="lg">
                 <Button

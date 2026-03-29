@@ -11,7 +11,12 @@ const SOUND_COOLDOWN_MS = 2000
 let audioUnlockBound = false
 let audioPrimed = false
 let lastSoundAt = 0
+let suppressInterestSound = false
 const liveUpdateAudios = new Map<string, HTMLAudioElement>()
+
+export function suppressNextInterestSound() {
+  suppressInterestSound = true
+}
 
 function buildStreamUrl(): string {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL
@@ -85,7 +90,7 @@ function bindAudioUnlockListeners() {
   audioUnlockBound = true
 }
 
-function playLiveUpdateSound(kind: 'match' | 'request' | 'notification') {
+export function playLiveUpdateSound(kind: 'match' | 'request' | 'notification') {
   const requestedSrc = LIVE_UPDATE_SOUND_PATHS[kind]
   const fallbackSrc = LIVE_UPDATE_SOUND_PATHS.notification
   const audio = ensureLiveUpdateAudio(requestedSrc) ?? ensureLiveUpdateAudio(fallbackSrc)
@@ -231,7 +236,11 @@ export function connectLiveUpdates(token: string, handlers: LiveUpdateHandlers) 
           break
         case 'interests.updated':
           emitLiveUpdateCue('request')
-          playLiveUpdateSound('request')
+          if (suppressInterestSound) {
+            suppressInterestSound = false
+          } else {
+            playLiveUpdateSound('request')
+          }
           await handlers.refreshInterests?.()
           break
         case 'connected':
