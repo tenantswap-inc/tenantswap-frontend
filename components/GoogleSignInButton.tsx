@@ -1,5 +1,3 @@
-import { Client } from "@/shared/utils/ApiClient";
-import { NextResponse } from "next/server";
 
 interface SSO {
   register?: boolean;
@@ -9,13 +7,14 @@ interface SSO {
 export default function GoogleSignInButton({ register, login }: SSO) {
 
   const handleSSO = async () => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "")
 
-    const url =  new URL( `${process.env.NEXT_PUBLIC_API_URL}/auth/sso/google`);
+    if (!baseUrl) {
+      console.error("NEXT_PUBLIC_API_URL is not configured")
+      return
+    }
 
-    console.log(url);
-
-    window.location.href = url.toString();
-
+    window.location.href = `${baseUrl}/auth/sso/google`
   }
 
   if (login) {
