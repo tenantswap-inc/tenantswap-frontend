@@ -4,6 +4,7 @@ import React, { useEffect } from 'react'
 import Navbar from '@/components/Navbar'
 import { useToken } from '@/shared/hooks/useToken'
 import { connectLiveUpdates } from '@/shared/utils/liveUpdates'
+import { registerPushNotifications } from '@/shared/utils/pushNotifications'
 
 interface Props {
   children: React.ReactNode
@@ -16,6 +17,8 @@ const App: React.FC<Props> = ({ children }) => {
     if (!ready || !token) {
       return
     }
+
+    void registerPushNotifications(token)
 
     return connectLiveUpdates(token, {
       refreshUser: async () => undefined,
