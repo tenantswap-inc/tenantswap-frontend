@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from'next/navigation';
+
 import { PhoneCall, Info, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
 import Image from 'next/image';
 import type { RegisteredUser } from '@/app/register/page';
@@ -9,9 +9,10 @@ import type { RegisteredUser } from '@/app/register/page';
 interface OnboardingProps {
   currentUser: RegisteredUser | null;
   onComplete: (updatedUser: RegisteredUser) => void;
+  isLoading?: boolean;
 }
 
-const Onboarding: React.FC<OnboardingProps> = ({ currentUser, onComplete }) => {
+const Onboarding: React.FC<OnboardingProps> = ({ currentUser, onComplete, isLoading = false }) => {
   const [canConnect, setCanConnect] = useState<boolean | null>(null);
   const [hasContact, setHasContact] = useState<boolean | null>(null);
     const [allowCalls, setAllowCalls] = useState<boolean | null>(null);
@@ -239,15 +240,27 @@ const Onboarding: React.FC<OnboardingProps> = ({ currentUser, onComplete }) => {
         {/* CTA Button */}
         <button
           onClick={handleComplete}
-          className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 px-6 py-3.5 font-poppins-bold text-white text-sm shadow-[0_4px_16px_rgba(5,150,105,0.4)] transition-all duration-300 hover:shadow-[0_8px_28px_rgba(5,150,105,0.5)] hover:-translate-y-0.5 active:scale-[0.98] active:shadow-none"
+          disabled={isLoading}
+          className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 px-6 py-3.5 font-poppins-bold text-white text-sm shadow-[0_4px_16px_rgba(5,150,105,0.4)] transition-all duration-300 hover:shadow-[0_8px_28px_rgba(5,150,105,0.5)] hover:-translate-y-0.5 active:scale-[0.98] active:shadow-none disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[0_4px_16px_rgba(5,150,105,0.4)]"
         >
           <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:translate-x-full transition-transform duration-700 ease-in-out" />
           <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
           <span className="relative flex items-center justify-center gap-2 tracking-wide">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-300 group-hover:translate-x-0.5">
-              <path d="M5 12h14M12 5l7 7-7 7" />
-            </svg>
-            Complete Registration
+            {isLoading ? (
+              <>
+                <svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+                Completing Registration…
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-300 group-hover:translate-x-0.5">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+                Complete Registration
+              </>
+            )}
           </span>
         </button>
 

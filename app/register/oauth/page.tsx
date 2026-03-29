@@ -76,6 +76,7 @@ const Register: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [alertMsg, setAlertMsg] = useState("")
   const [authChecked, setAuthChecked] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (localStorage.getItem("OAuthUser")) {
@@ -157,8 +158,7 @@ const Register: React.FC = () => {
   }
 
   const handleOnboardingComplete = async (updatedUser: RegisteredUser) => {
-
-
+    setIsSubmitting(true)
     try {
 
 
@@ -199,6 +199,8 @@ const Register: React.FC = () => {
       } else {
         setAlertMsg("Network error. Please try again.")
       }
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -213,7 +215,7 @@ const Register: React.FC = () => {
   if (showOnboarding) {
     return (
       <GuestLayout>
-        <Onboarding currentUser={registeredUser} onComplete={handleOnboardingComplete} />
+        <Onboarding currentUser={registeredUser} onComplete={handleOnboardingComplete} isLoading={isSubmitting} />
       </GuestLayout>
     )
   }

@@ -91,12 +91,11 @@ const MatchCard: React.FC<Props> = ({ match, relatedRequest, onRequestAgain, set
           <motion.button
             type="button"
             onClick={() => setSelectedMatch(match)}
-            initial={{ opacity: 0, x: 12, scale: 0.96 }}
-            animate={{ opacity: 0, x: 12, scale: 0.96 }}
-            whileHover={{ x: 0, opacity: 1, scale: 1 }}
-            className="pointer-events-none inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-emerald-700 opacity-0 shadow-sm transition-all duration-300 ease-out group-hover:pointer-events-auto group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-x-0 group-focus-within:opacity-100 hover:bg-emerald-50"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.97 }}
+            className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-emerald-700 shadow-sm hover:bg-emerald-50 hover:border-emerald-400 transition-all duration-200"
           >
-            Explore <ArrowRight size={13} className="transition-transform duration-300 group-hover:translate-x-0.5" />
+            Explore <ArrowRight size={13} className="transition-transform duration-200 group-hover:translate-x-0.5" />
           </motion.button>
         )}
       </div>
