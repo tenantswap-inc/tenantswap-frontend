@@ -16,6 +16,13 @@ export const metadata: Metadata = {
       "de-DE": `${url}/de-DE`,
     },
   },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "TenantSwap",
+  },
+  themeColor: "#059669",
   // openGraph: {
   //   title: "Tenant Swap",
   //   description: "Zero Agent Fees for Nigerian Tenants",

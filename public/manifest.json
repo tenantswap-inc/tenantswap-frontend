@@ -1,0 +1,24 @@
+{
+  "name": "TenantSwap",
+  "short_name": "TenantSwap",
+  "description": "Swap apartments with verified tenants. Zero agent fees.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#059669",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/assets/TenantSwap Logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/TenantSwap Logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
