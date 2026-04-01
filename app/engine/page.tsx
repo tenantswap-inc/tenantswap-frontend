@@ -373,15 +373,6 @@ const Engine: React.FC = () => {
       currentAvailable,
       currentAvailableOn: currentAvailable ? new Date(currentAvailableOn).toISOString() : null,
       features: selectedFeatures,
-      vacancyAlert: hasVacancyAlert
-        ? {
-            apartmentType: vacancyApartmentType,
-            state: vacancyState,
-            city: vacancyCity,
-            area: vacancyArea || null,
-            features: vacancyFeatures,
-          }
-        : null,
     }
 
 

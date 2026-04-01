@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Alert } from '@heroui/alert';
-import { CheckSquare, Loader2, Megaphone, Square, X } from 'lucide-react';
+import { CheckSquare, Copy, Loader2, Megaphone, Share2, Square, X } from 'lucide-react';
 
 import { FEATURES, PROPERTY_TYPES } from '@/constants';
 import type { Location, PropertyType, UserSwapListing } from '@/shared/types';
@@ -46,6 +46,7 @@ const VacancyAlertModal: React.FC<VacancyAlertModalProps> = ({
   const [area, setArea] = useState('');
   const [features, setFeatures] = useState<string[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!listing) {
@@ -71,6 +72,28 @@ const VacancyAlertModal: React.FC<VacancyAlertModalProps> = ({
         ? prev.filter((item) => item !== feature)
         : [...prev, feature],
     );
+  };
+
+  const handleShare = async () => {
+    if (!listing?.vacancyAlert) return;
+    const vacancyId = listing.vacancyAlert.id;
+    const shareUrl = `${window.location.origin}/vacancy/${vacancyId}`;
+    const shareText = `Vacancy Available: ${listing.vacancyAlert.apartmentType} in ${listing.vacancyAlert.city}, ${listing.vacancyAlert.state}. Check it out on TenantSwap!`;
+
+    // Record share count (fire and forget)
+    void fetch(`${process.env.NEXT_PUBLIC_API_URL}/vacancy/${vacancyId}/share`, { method: 'POST' }).catch(() => undefined);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Vacancy Alert — TenantSwap', text: shareText, url: shareUrl });
+      } catch {
+        // user cancelled share sheet
+      }
+    } else {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
   };
 
   const handleSubmit = async () => {
@@ -141,7 +164,7 @@ const VacancyAlertModal: React.FC<VacancyAlertModalProps> = ({
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="w-full max-w-3xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_35px_120px_rgba(15,23,42,0.22)]"
+              className="w-full max-w-3xl overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_35px_120px_rgba(15,23,42,0.22)] max-h-[95vh] flex flex-col"
               initial={{ opacity: 0, y: 28, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
@@ -169,7 +192,7 @@ const VacancyAlertModal: React.FC<VacancyAlertModalProps> = ({
                 </button>
               </div>
 
-              <div className="max-h-[80vh] overflow-y-auto px-6 py-6">
+              <div className="flex-1 overflow-y-auto px-6 py-6">
                 {errorMsg && (
                   <div className="mb-5">
                     <Alert color="danger" variant="flat" isVisible onClose={() => setErrorMsg('')}>
@@ -351,15 +374,38 @@ const VacancyAlertModal: React.FC<VacancyAlertModalProps> = ({
                 )}
               </div>
 
-              <div className="flex items-center justify-between border-t border-slate-100 px-6 py-5">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  disabled={saving}
-                  className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-poppins-medium text-slate-600 transition-all hover:bg-slate-50 disabled:opacity-60"
-                >
-                  Close
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-6 py-5">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={saving}
+                    className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-poppins-medium text-slate-600 transition-all hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    Close
+                  </button>
+
+                  {listing?.vacancyAlert && (
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      disabled={saving}
+                      className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-poppins-medium text-emerald-700 transition-all hover:bg-emerald-100 disabled:opacity-60"
+                    >
+                      {copied ? (
+                        <>
+                          <Copy size={15} />
+                          Link Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Share2 size={15} />
+                          Share Vacancy
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
 
                 <button
                   type="button"

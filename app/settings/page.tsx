@@ -1,11 +1,11 @@
 // app/settings/page.tsx
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
       User, Mail, Phone, Lock, Eye, EyeOff,
       Briefcase, Save, Loader2, ChevronLeft,
-      ShieldCheck, Bell, UserCircle,
+      ShieldCheck, Bell, UserCircle, Camera,
 } from 'lucide-react'
 import AuthLayout from '@/app/AuthLayout'
 import Toasts from '@/components/Toasts'
@@ -130,6 +130,11 @@ export default function SettingsPage() {
       const [savingProfile, setSavingProfile] = useState(false)
       const [savingPassword, setSavingPassword] = useState(false)
 
+      // ── profile photo ────────────────────────────────────────────────────────
+      const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+      const [photoUploading, setPhotoUploading] = useState(false)
+      const photoInputRef = useRef<HTMLInputElement>(null)
+
       // ── profile form ────────────────────────────────────────────────────────
       const [profile, setProfile] = useState<ProfileForm>({
             fullName: '',
@@ -197,6 +202,7 @@ export default function SettingsPage() {
                                     gender: u.gender?.toLowerCase() ?? '',
                                     allowIncomingCalls: u.allowIncomingCalls ?? true,
                               })
+                              setPhotoUrl(u.profilePhotoUrl ?? null)
                         }
                   } finally {
                         setHydrated(true)
@@ -204,6 +210,66 @@ export default function SettingsPage() {
             }
             load()
       }, [token, router])
+
+      // ── compress image with canvas ──────────────────────────────────────────
+      const compressImage = (file: File): Promise<Blob> =>
+            new Promise((resolve, reject) => {
+                  const img = new Image()
+                  const url = URL.createObjectURL(file)
+                  img.onload = () => {
+                        URL.revokeObjectURL(url)
+                        const size = 800
+                        const canvas = document.createElement('canvas')
+                        canvas.width = size
+                        canvas.height = size
+                        const ctx = canvas.getContext('2d')!
+                        const aspect = img.width / img.height
+                        let sx = 0, sy = 0, sw = img.width, sh = img.height
+                        if (aspect > 1) { sx = (img.width - img.height) / 2; sw = img.height }
+                        else if (aspect < 1) { sy = (img.height - img.width) / 2; sh = img.width }
+                        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, size, size)
+                        canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Compression failed')), 'image/jpeg', 0.82)
+                  }
+                  img.onerror = () => reject(new Error('Image load failed'))
+                  img.src = url
+            })
+
+      // ── upload photo ────────────────────────────────────────────────────────
+      const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0]
+            if (!file) return
+            if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+                  setAlertMsg('Only JPEG, PNG, or WebP images are allowed.')
+                  return
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                  setAlertMsg('Image must be smaller than 10 MB.')
+                  return
+            }
+            setPhotoUploading(true)
+            try {
+                  const compressed = await compressImage(file)
+                  const form = new FormData()
+                  form.append('photo', compressed, 'photo.jpg')
+                  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/profile-photo`, {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${token}` },
+                        body: form,
+                  })
+                  const json = await res.json() as { profilePhotoUrl?: string; message?: string }
+                  if (res.ok && json.profilePhotoUrl) {
+                        setPhotoUrl(json.profilePhotoUrl)
+                        setSuccessMsg('Profile photo updated.')
+                  } else {
+                        setAlertMsg(json.message ?? 'Upload failed. Please try again.')
+                  }
+            } catch {
+                  setAlertMsg('Network error. Please try again.')
+            } finally {
+                  setPhotoUploading(false)
+                  if (photoInputRef.current) photoInputRef.current.value = ''
+            }
+      }
 
       // ── submit profile ──────────────────────────────────────────────────────
       const handleSaveProfile = async () => {
@@ -326,6 +392,56 @@ export default function SettingsPage() {
                               {/* ── Profile tab ─────────────────────────────────────────────── */}
                               <TabPanel tabKey="profile" activeTab={activeTab}>
                                     <div className="space-y-6">
+
+                                          {/* ── Avatar upload ──────────────────────────────────────── */}
+                                          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-6">
+                                                <h3 className="font-poppins-bold text-slate-800 text-base mb-1">Profile Photo</h3>
+                                                <p className="text-xs text-slate-400 font-poppins-regular mb-5">
+                                                      Helps other tenants recognise and trust you
+                                                </p>
+                                                <div className="flex items-center gap-5">
+                                                      {/* Avatar circle */}
+                                                      <div className="relative shrink-0">
+                                                            <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-slate-200 bg-slate-100 flex items-center justify-center">
+                                                                  {photoUrl ? (
+                                                                        // eslint-disable-next-line @next/next/no-img-element
+                                                                        <img src={photoUrl} alt="Profile" className="w-full h-full object-cover" />
+                                                                  ) : (
+                                                                        <UserCircle size={44} className="text-slate-300" />
+                                                                  )}
+                                                            </div>
+                                                            {photoUploading && (
+                                                                  <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
+                                                                        <Loader2 size={20} className="text-white animate-spin" />
+                                                                  </div>
+                                                            )}
+                                                      </div>
+
+                                                      {/* Upload button */}
+                                                      <div>
+                                                            <input
+                                                                  ref={photoInputRef}
+                                                                  type="file"
+                                                                  accept="image/jpeg,image/png,image/webp"
+                                                                  className="hidden"
+                                                                  onChange={handlePhotoChange}
+                                                            />
+                                                            <button
+                                                                  type="button"
+                                                                  disabled={photoUploading}
+                                                                  onClick={() => photoInputRef.current?.click()}
+                                                                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-poppins-bold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            >
+                                                                  <Camera size={15} />
+                                                                  {photoUploading ? 'Uploading…' : photoUrl ? 'Change Photo' : 'Upload Photo'}
+                                                            </button>
+                                                            <p className="mt-1.5 text-[11px] font-poppins-regular text-slate-400">
+                                                                  JPEG, PNG or WebP · Max 10 MB
+                                                            </p>
+                                                      </div>
+                                                </div>
+                                          </div>
+
                                           <SectionCard title="Personal Information" description="Update your basic profile details">
 
                                                 <FieldWrapper label="Full Name" error={profileErrors.fullName}>

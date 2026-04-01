@@ -5,11 +5,11 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bell, LogOut, LayoutDashboard, X, Menu } from 'lucide-react'
-import { Alert } from '@heroui/alert'
 import { Logo } from './logo'
 import { useToken } from '@/shared/hooks/useToken'
 import { Client } from '@/shared/utils/ApiClient'
 import { LIVE_UPDATE_EVENT, playLiveUpdateSound, type LiveUpdateEventDetail } from '@/shared/utils/liveUpdates'
+import ActivityToast, { type ActivityToastData } from './ActivityToast'
 
 type NotificationItem = {
   id: string
@@ -21,51 +21,67 @@ type NotificationItem = {
   createdAt: string
 }
 
-type NotificationToast = {
-  id: string
-  title: string
-  message: string
-}
-
-function buildNotificationToast(detail: LiveUpdateEventDetail): NotificationToast {
+function buildActivityToast(detail: LiveUpdateEventDetail): ActivityToastData {
   const notificationType = typeof detail.data?.notificationType === 'string' ? detail.data.notificationType : null
+  const vacancyId = typeof detail.data?.vacancyAlertId === 'string' ? detail.data.vacancyAlertId : null
+  const now = new Date()
 
   if (notificationType === 'VACANCY_ALERT_SHARED') {
     return {
       id: `${detail.type}-${Date.now()}`,
-      title: 'Vacancy alert',
-      message: 'A possible vacancy near your preferred area was just shared.',
+      kind: 'vacancy',
+      title: 'Vacancy Alert Nearby',
+      message: 'A tenant near your preferred area just reported a possible vacancy. Tap to view.',
+      ctaLabel: 'View Vacancy',
+      ctaHref: vacancyId ? `/vacancy/${vacancyId}` : '/dashboard',
+      createdAt: now,
     }
   }
 
   if (notificationType === 'INTEREST_REQUESTED') {
     return {
       id: `${detail.type}-${Date.now()}`,
-      title: 'Connection request',
-      message: 'You just received a new connection request.',
+      kind: 'request',
+      title: 'New Connection Request',
+      message: 'Someone wants to connect with you. Review their listing on your dashboard.',
+      ctaLabel: 'View Request',
+      ctaHref: '/dashboard',
+      createdAt: now,
     }
   }
 
   if (notificationType === 'INTEREST_APPROVED' || notificationType === 'CONTACT_APPROVED') {
     return {
       id: `${detail.type}-${Date.now()}`,
-      title: 'Request approved',
-      message: 'One of your connection requests has been approved.',
+      kind: 'approved',
+      title: 'Request Approved!',
+      message: 'Your connection request was approved. You can now see their contact.',
+      ctaLabel: 'Go to Dashboard',
+      ctaHref: '/dashboard',
+      createdAt: now,
     }
   }
 
   if (notificationType === 'INTEREST_DECLINED') {
     return {
       id: `${detail.type}-${Date.now()}`,
-      title: 'Request declined',
+      kind: 'declined',
+      title: 'Request Declined',
       message: 'One of your connection requests was declined.',
+      ctaLabel: 'View Dashboard',
+      ctaHref: '/dashboard',
+      createdAt: now,
     }
   }
 
   return {
     id: `${detail.type}-${Date.now()}`,
-    title: 'New notification',
+    kind: 'generic',
+    title: 'New Notification',
     message: 'You have a new update on your swap activity.',
+    ctaLabel: 'View Dashboard',
+    ctaHref: '/dashboard',
+    createdAt: now,
   }
 }
 
@@ -83,10 +99,11 @@ const Navbar: React.FC = () => {
   const { token, ready } = useToken()
 
   const isLoggedIn = token !== null
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [notificationPulseActive, setNotificationPulseActive] = useState(false)
-  const [toastNotification, setToastNotification] = useState<NotificationToast | null>(null)
+  const [toastNotification, setToastNotification] = useState<ActivityToastData | null>(null)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [loadingNotifications, setLoadingNotifications] = useState(false)
   const [markingAllRead, setMarkingAllRead] = useState(false)
@@ -204,7 +221,13 @@ const Navbar: React.FC = () => {
     setNotificationOpen(false)
     setNotificationPulseActive(false)
     setMobileMenuOpen(false)
-    router.push('/dashboard')
+
+    const vacancyId = typeof notification.payload?.vacancyAlertId === 'string' ? notification.payload.vacancyAlertId : null
+    if (notification.type === 'VACANCY_ALERT_SHARED' && vacancyId) {
+      router.push(`/vacancy/${vacancyId}`)
+    } else {
+      router.push('/dashboard')
+    }
   }
 
   const handleLogout = async () => {
@@ -222,15 +245,26 @@ const Navbar: React.FC = () => {
     }
   }
 
+  const readProfilePhoto = async () => {
+    if (!token) return
+    try {
+      const res = await Client.get('/users/me', {}, { Authorization: `Bearer ${token}` })
+      if (res.status === 200) {
+        setProfilePhotoUrl(res.data?.data?.user?.profilePhotoUrl ?? null)
+      }
+    } catch { /* non-critical */ }
+  }
+
   useEffect(() => {
     if (!ready) return
     if (!token) {
       setUnreadCount(0)
       setNotifications([])
       setToastNotification(null)
+      setProfilePhotoUrl(null)
       return
     }
-    void Promise.all([readUnreadCount(), readNotifications()])
+    void Promise.all([readUnreadCount(), readNotifications(), readProfilePhoto()])
   }, [ready, token])
 
   useEffect(() => {
@@ -240,7 +274,7 @@ const Navbar: React.FC = () => {
       const detail = (event as CustomEvent<LiveUpdateEventDetail>).detail
       if (!detail || detail.type !== 'notifications.updated') return
 
-      setToastNotification(buildNotificationToast(detail))
+      setToastNotification(buildActivityToast(detail))
       setNotificationPulseActive(true)
       void Promise.all([readUnreadCount(), readNotifications()])
 
@@ -301,11 +335,6 @@ const Navbar: React.FC = () => {
     }
   }, [notificationOpen])
 
-  useEffect(() => {
-    if (!toastNotification) return
-    const timeout = setTimeout(() => setToastNotification(null), 4000)
-    return () => clearTimeout(timeout)
-  }, [toastNotification])
 
   // ─── Notification Panel (shared between desktop dropdown & mobile sheet) ───
   const NotificationPanel = ({ isMobile = false }: { isMobile?: boolean }) => (
@@ -393,33 +422,8 @@ const Navbar: React.FC = () => {
 
   return (
     <>
-      {/* ── Toast ── */}
-      <AnimatePresence>
-        {toastNotification && (
-          <motion.div
-            initial={{ opacity: 0, y: -12, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.98 }}
-            transition={{ duration: 0.24, ease: 'easeOut' }}
-            className="fixed right-4 top-20 z-[100] w-[calc(100vw-2rem)] max-w-sm"
-          >
-            <Alert
-              color="success"
-              variant="solid"
-              isVisible
-              onClose={() => setToastNotification(null)}
-              classNames={{
-                base: 'rounded-2xl border border-emerald-500/20 bg-emerald-500 shadow-2xl',
-              }}
-            >
-              <div className="space-y-1">
-                <p className="text-sm font-poppins-bold text-white">{toastNotification.title}</p>
-                <p className="text-xs font-poppins-medium text-white/90">{toastNotification.message}</p>
-              </div>
-            </Alert>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ── Bottom-right activity toast ── */}
+      <ActivityToast toast={toastNotification} onClose={() => setToastNotification(null)} />
 
       {/* ── Navbar ── */}
       <nav className="sticky top-0 z-40 bg-primary-green shadow-lg shadow-white/10">
@@ -481,6 +485,25 @@ const Navbar: React.FC = () => {
                       )}
                     </AnimatePresence>
                   </div>
+
+                  {/* Avatar → Settings */}
+                  <Link href="/settings" className="shrink-0">
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="w-9 h-9 rounded-full overflow-hidden border-2 border-white/30 bg-white/15 flex items-center justify-center cursor-pointer"
+                    >
+                      {profilePhotoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={profilePhotoUrl} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <svg className="text-white/80" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="12" cy="8" r="4" />
+                          <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                        </svg>
+                      )}
+                    </motion.div>
+                  </Link>
 
                   <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
                     <Link
@@ -628,6 +651,26 @@ const Navbar: React.FC = () => {
 
                   {/* Drawer footer actions */}
                   <div className="border-t border-slate-100 p-4 space-y-2">
+                    {/* User avatar row */}
+                    <Link
+                      href="/settings"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 w-full rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 mb-1 transition-all active:scale-[0.98]"
+                    >
+                      <div className="w-9 h-9 rounded-full overflow-hidden border border-slate-200 bg-slate-200 flex items-center justify-center shrink-0">
+                        {profilePhotoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={profilePhotoUrl} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                          <svg className="text-slate-400" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="8" r="4" />
+                            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-sm font-poppins-bold text-slate-700">Edit Profile</span>
+                    </Link>
+
                     <Link
                       href="/dashboard"
                       onClick={() => setMobileMenuOpen(false)}

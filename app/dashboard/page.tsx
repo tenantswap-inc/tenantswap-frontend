@@ -7,6 +7,7 @@ import {
   User,
   UserSwapListing,
   UserSwapRequest,
+  VacancyAlert,
 } from '@/shared/types';
 import {
   FilePlus, Edit2, Link2Off, ArrowRight,
@@ -16,6 +17,8 @@ import {
   Plus,
   Settings,
   ChevronDown,
+  Phone,
+  UserCheck,
 } from 'lucide-react';
 import { Client } from '@/shared/utils/ApiClient';
 import { useRouter } from 'next/navigation';
@@ -76,6 +79,7 @@ const Dashboard: React.FC = () => {
   const [requestAttentionPulseActive, setRequestAttentionPulseActive] = useState(false);
   const [vacancyListing, setVacancyListing] = useState<UserSwapListing | null>(null);
   const [vacancySaving, setVacancySaving] = useState(false);
+  const [myVacancies, setMyVacancies] = useState<VacancyAlert[]>([]);
   const previousIncomingOpenRequests = useRef(0);
   const requestAttentionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSoundIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -150,6 +154,13 @@ const Dashboard: React.FC = () => {
     await Promise.all([readIncomingRequests(), readOutgoingRequests()]);
   };
 
+  const readVacancies = async () => {
+    const token = localStorage.getItem('JWT_TOKEN');
+    if (!token) return;
+    const response = await Client.get('/vacancy/me/all', {}, { Authorization: `Bearer ${token}` });
+    if (response.status === 200) setMyVacancies(response.data.data ?? []);
+  };
+
   const handleConnect = async (targetListingId: string) => {
     setConnecting(true);
     suppressNextInterestSound();
@@ -218,7 +229,7 @@ const Dashboard: React.FC = () => {
     router.push('/engine?from=dashboard');
   };
 
-  const handleSaveVacancyAlert = async (listingId: string, vacancyAlert: {
+  const handleSaveVacancyAlert = async (_listingId: string, vacancyPayload: {
     apartmentType: string;
     state: string;
     city: string;
@@ -228,11 +239,21 @@ const Dashboard: React.FC = () => {
     setVacancySaving(true);
     try {
       const token = localStorage.getItem('JWT_TOKEN');
-      const response = await Client.patch(`/listings/${listingId}`, { vacancyAlert }, { Authorization: `Bearer ${token}` });
+      if (!vacancyPayload) {
+        // Delete all existing vacancies (or just the first one if multiple)
+        if (myVacancies.length > 0) {
+          await Client.delete(`/vacancy/${myVacancies[0].id}`, undefined, { Authorization: `Bearer ${token}` });
+        }
+        setVacancyListing(null);
+        setSuccessMsg('Vacancy alert removed.');
+        await readVacancies();
+        return;
+      }
+      const response = await Client.post('/vacancy', vacancyPayload, { Authorization: `Bearer ${token}` });
       if (response.status === 200 || response.status === 201) {
         setVacancyListing(null);
-        setSuccessMsg(vacancyAlert ? 'Vacancy alert updated.' : 'Vacancy alert removed.');
-        await readCurrentUser();
+        setSuccessMsg('Vacancy alert created.');
+        await readVacancies();
         return;
       }
       setErrorMsg(response.data?.message ?? 'Unable to save this vacancy alert right now.');
@@ -244,7 +265,7 @@ const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    readCurrentUser().then(readRequests).finally(() => setHydrated(true));
+    readCurrentUser().then(() => Promise.all([readRequests(), readVacancies()])).finally(() => setHydrated(true));
   }, []);
 
   useEffect(() => {
@@ -573,7 +594,7 @@ const Dashboard: React.FC = () => {
                     className="flex items-center gap-1.5 text-xs border border-emerald-200 px-3 py-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 font-poppins-medium transition-all whitespace-nowrap"
                   >
                     <Bell size={13} />
-                    {listing.vacancyAlert ? 'Edit Alert' : 'Vacancy Alert'}
+                    Vacancy Alert
                   </button>
                   <button
                     onClick={() => setUpdateListing(listing)}
@@ -633,39 +654,116 @@ const Dashboard: React.FC = () => {
                 )}
               </div>
 
-              {/* Vacancy alert card */}
-              {listing.vacancyAlert && (
-                <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="text-[10px] text-amber-600 font-poppins-bold uppercase tracking-widest mb-1">Vacancy Alert</p>
-                      <p className="text-sm font-poppins-bold text-slate-800">
-                        {listing.vacancyAlert.apartmentType} in{' '}
-                        {[listing.vacancyAlert.area, listing.vacancyAlert.city, listing.vacancyAlert.state].filter(Boolean).join(', ')}
-                      </p>
+              {/* Vacancy alert cards */}
+              {listingIndex === 0 && myVacancies.length > 0 && (
+                <div className="mb-6 space-y-3">
+                  {myVacancies.map((v) => (
+                    <div key={v.id} className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-[10px] text-amber-600 font-poppins-bold uppercase tracking-widest mb-1">Vacancy Alert</p>
+                          <p className="text-sm font-poppins-bold text-slate-800">
+                            {v.apartmentType} in{' '}
+                            {[v.area, v.city, v.state].filter(Boolean).join(', ')}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 self-start">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const token = localStorage.getItem('JWT_TOKEN');
+                              await Client.delete(`/vacancy/${v.id}`, undefined, { Authorization: `Bearer ${token}` });
+                              await readVacancies();
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-red-600 transition-all hover:bg-red-50 whitespace-nowrap"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                      {v.features.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {v.features.map((feature) => (
+                            <span key={feature} className="text-[10px] bg-white border border-amber-200 text-amber-700 px-2 py-0.5 rounded-md font-poppins-medium">
+                              {feature}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setVacancyListing(listing)}
-                      className="self-start inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-amber-700 transition-all hover:bg-amber-100 whitespace-nowrap"
-                    >
-                      Edit Alert
-                    </button>
-                  </div>
-                  {listing.vacancyAlert.features.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {listing.vacancyAlert.features.map((feature) => (
-                        <span
-                          key={feature}
-                          className="text-[10px] bg-white border border-amber-200 text-amber-700 px-2 py-0.5 rounded-md font-poppins-medium"
-                        >
-                          {feature}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  ))}
                 </div>
               )}
+
+              {/* Approved contact cards */}
+              {(() => {
+                const approvedOutgoing = outgoingRequests.filter(
+                  (r) => r.requesterListingId === listing.id && r.status === 'CONTACT_APPROVED',
+                );
+                const approvedIncoming =
+                  incomingListings
+                    .find((il) => il.listingId === listing.id)
+                    ?.requests.filter((r) => r.status === 'CONTACT_APPROVED') ?? [];
+
+                if (approvedOutgoing.length === 0 && approvedIncoming.length === 0) return null;
+
+                return (
+                  <div className="mb-6 space-y-3">
+                    {approvedOutgoing.map((req) => (
+                      <div key={req.interestId} className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center shrink-0">
+                              <UserCheck size={16} className="text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-blue-600 font-poppins-bold uppercase tracking-widest mb-0.5">Contact Approved</p>
+                              <p className="text-sm font-poppins-bold text-slate-800">{req.owner.fullName}</p>
+                              {req.owner.phone && (
+                                <p className="text-xs font-poppins-medium text-slate-500 mt-0.5">{req.owner.phone}</p>
+                              )}
+                            </div>
+                          </div>
+                          {req.owner.phone && (
+                            <a
+                              href={`tel:${req.owner.phone}`}
+                              className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-blue-600 transition-all hover:bg-blue-50 whitespace-nowrap"
+                            >
+                              <Phone size={11} /> Call
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {approvedIncoming.map((req) => (
+                      <div key={req.interestId} className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center shrink-0">
+                              <UserCheck size={16} className="text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-blue-600 font-poppins-bold uppercase tracking-widest mb-0.5">You Approved — Their Contact</p>
+                              <p className="text-sm font-poppins-bold text-slate-800">{req.requester.fullName}</p>
+                              {req.requester.phone && (
+                                <p className="text-xs font-poppins-medium text-slate-500 mt-0.5">{req.requester.phone}</p>
+                              )}
+                            </div>
+                          </div>
+                          {req.requester.phone && (
+                            <a
+                              href={`tel:${req.requester.phone}`}
+                              className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-blue-600 transition-all hover:bg-blue-50 whitespace-nowrap"
+                            >
+                              <Phone size={11} /> Call
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {/* Matches */}
               <div>
