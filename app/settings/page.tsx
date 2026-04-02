@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
       User, Mail, Phone, Lock, Eye, EyeOff,
       Briefcase, Save, Loader2, ChevronLeft,
-      ShieldCheck, Bell, UserCircle, Camera,
+      ShieldCheck, Bell, UserCircle, Camera, Building2, MapPin,
 } from 'lucide-react'
 import AuthLayout from '@/app/AuthLayout'
 import Toasts from '@/components/Toasts'
@@ -135,6 +135,15 @@ export default function SettingsPage() {
       const [photoUploading, setPhotoUploading] = useState(false)
       const photoInputRef = useRef<HTMLInputElement>(null)
 
+      // ── workplace ────────────────────────────────────────────────────────────
+      const [workplace, setWorkplace] = useState({
+            workplaceName: '',
+            workplaceArea: '',
+            workplaceCity: '',
+            workplaceState: '',
+      })
+      const [savingWorkplace, setSavingWorkplace] = useState(false)
+
       // ── profile form ────────────────────────────────────────────────────────
       const [profile, setProfile] = useState<ProfileForm>({
             fullName: '',
@@ -203,6 +212,12 @@ export default function SettingsPage() {
                                     allowIncomingCalls: u.allowIncomingCalls ?? true,
                               })
                               setPhotoUrl(u.profilePhotoUrl ?? null)
+                              setWorkplace({
+                                    workplaceName: u.workplaceName ?? '',
+                                    workplaceArea: u.workplaceArea ?? '',
+                                    workplaceCity: u.workplaceCity ?? '',
+                                    workplaceState: u.workplaceState ?? '',
+                              })
                         }
                   } finally {
                         setHydrated(true)
@@ -268,6 +283,30 @@ export default function SettingsPage() {
             } finally {
                   setPhotoUploading(false)
                   if (photoInputRef.current) photoInputRef.current.value = ''
+            }
+      }
+
+      // ── save workplace ──────────────────────────────────────────────────────
+      const handleSaveWorkplace = async () => {
+            setSavingWorkplace(true)
+            try {
+                  const payload = {
+                        workplaceName: workplace.workplaceName.trim() || null,
+                        workplaceArea: workplace.workplaceArea.trim() || null,
+                        workplaceCity: workplace.workplaceCity.trim() || null,
+                        workplaceState: workplace.workplaceState.trim() || null,
+                  }
+                  const res = await Client.patch('/users/me', payload, { Authorization: `Bearer ${token}` })
+                  if (res.status === 200 || res.status === 204) {
+                        setSuccessMsg('Workplace saved.')
+                        return
+                  }
+                  if (res.status === 401) { localStorage.removeItem('JWT_TOKEN'); router.push('/login'); return }
+                  setAlertMsg(res.data?.message ?? 'Something went wrong.')
+            } catch {
+                  setAlertMsg('Network error. Please try again.')
+            } finally {
+                  setSavingWorkplace(false)
             }
       }
 
@@ -552,6 +591,82 @@ export default function SettingsPage() {
                                                       <><Save size={18} /> Save Profile</>
                                                 )}
                                           </button>
+
+                                          {/* ── Workplace section ──────────────────────────────────── */}
+                                          <SectionCard
+                                                title="Workplace"
+                                                description="Used only to prioritise apartments near your office. Never shown publicly."
+                                          >
+                                                <FieldWrapper label="Company / Organisation Name">
+                                                      <div className="relative">
+                                                            <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                                                            <input
+                                                                  value={workplace.workplaceName}
+                                                                  onChange={(e) => setWorkplace((w) => ({ ...w, workplaceName: e.target.value }))}
+                                                                  placeholder="e.g. UBA Bank"
+                                                                  className={fieldClass()}
+                                                            />
+                                                      </div>
+                                                </FieldWrapper>
+
+                                                <div className="grid grid-cols-2 gap-4">
+                                                      <FieldWrapper label="State">
+                                                            <div className="relative">
+                                                                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                                                                  <input
+                                                                        value={workplace.workplaceState}
+                                                                        onChange={(e) => setWorkplace((w) => ({ ...w, workplaceState: e.target.value }))}
+                                                                        placeholder="e.g. Oyo"
+                                                                        className={fieldClass()}
+                                                                  />
+                                                            </div>
+                                                      </FieldWrapper>
+                                                      <FieldWrapper label="City">
+                                                            <div className="relative">
+                                                                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                                                                  <input
+                                                                        value={workplace.workplaceCity}
+                                                                        onChange={(e) => setWorkplace((w) => ({ ...w, workplaceCity: e.target.value }))}
+                                                                        placeholder="e.g. Ibadan"
+                                                                        className={fieldClass()}
+                                                                  />
+                                                            </div>
+                                                      </FieldWrapper>
+                                                </div>
+
+                                                <FieldWrapper label="Area / Neighbourhood">
+                                                      <div className="relative">
+                                                            <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                                                            <input
+                                                                  value={workplace.workplaceArea}
+                                                                  onChange={(e) => setWorkplace((w) => ({ ...w, workplaceArea: e.target.value }))}
+                                                                  placeholder="e.g. Challenge, Dugbe"
+                                                                  className={fieldClass()}
+                                                            />
+                                                      </div>
+                                                </FieldWrapper>
+
+                                                <div className="flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+                                                      <ShieldCheck size={14} className="text-emerald-500 shrink-0" />
+                                                      <p className="text-xs font-poppins-regular text-slate-500">
+                                                            Your workplace is private and only used to rank apartments closer to your office.
+                                                      </p>
+                                                </div>
+
+                                                <button
+                                                      onClick={handleSaveWorkplace}
+                                                      disabled={savingWorkplace}
+                                                      className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900
+                                 text-white font-poppins-bold py-3 rounded-2xl text-sm
+                                 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                                                >
+                                                      {savingWorkplace ? (
+                                                            <><Loader2 size={16} className="animate-spin" /> Saving…</>
+                                                      ) : (
+                                                            <><Save size={16} /> Save Workplace</>
+                                                      )}
+                                                </button>
+                                          </SectionCard>
                                     </div>
                               </TabPanel>
 

@@ -287,6 +287,10 @@ export interface User {
   hasLandlordContact: boolean;
   onboardingComplete: boolean;
   phoneVerifiedAt: string | null;
+  workplaceName: string | null;
+  workplaceArea: string | null;
+  workplaceCity: string | null;
+  workplaceState: string | null;
   createdAt: string;
   listings: UserSwapListing[];
 }
