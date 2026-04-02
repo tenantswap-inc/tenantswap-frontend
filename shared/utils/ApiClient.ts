@@ -46,5 +46,14 @@ export const Client = {
   ): Promise<AxiosResponse<T>> => {
     return await apiClient.delete<T>(url, { data, headers });
   },
+  postFormData: async <T = any>(
+    url: string,
+    formData: FormData,
+    headers?: Record<string, string>
+  ): Promise<AxiosResponse<T>> => {
+    return await apiClient.post<T>(url, formData, {
+      headers: { ...headers, 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 

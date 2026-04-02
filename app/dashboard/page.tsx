@@ -19,6 +19,10 @@ import {
   ChevronDown,
   Phone,
   UserCheck,
+  AlertCircle,
+  CheckCircle2,
+  FileUp,
+  Search,
 } from 'lucide-react';
 import { Client } from '@/shared/utils/ApiClient';
 import { useRouter } from 'next/navigation';
@@ -43,6 +47,8 @@ function getActiveListing(listings: UserSwapListing[]): UserSwapListing | null {
   if (!listings?.length) return null;
   return (
     listings.find((l) => l.status === 'ACTIVE') ??
+    listings.find((l) => l.listingType === 'SEEKING' && l.verificationStatus === 'PENDING') ??
+    listings.find((l) => l.listingType === 'SEEKING' && l.verificationStatus === 'REJECTED') ??
     [...listings].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     )[0]
@@ -80,6 +86,9 @@ const Dashboard: React.FC = () => {
   const [vacancyListing, setVacancyListing] = useState<UserSwapListing | null>(null);
   const [vacancySaving, setVacancySaving] = useState(false);
   const [myVacancies, setMyVacancies] = useState<VacancyAlert[]>([]);
+  const [resubmitListingId, setResubmitListingId] = useState<string | null>(null);
+  const [resubmitting, setResubmitting] = useState(false);
+  const resubmitFileRef = useRef<HTMLInputElement | null>(null);
   const previousIncomingOpenRequests = useRef(0);
   const requestAttentionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSoundIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -261,6 +270,31 @@ const Dashboard: React.FC = () => {
       setErrorMsg('Unable to reach the server. Please try again.');
     } finally {
       setVacancySaving(false);
+    }
+  };
+
+  const handleResubmitDocument = async (listingId: string, file: File) => {
+    setResubmitting(true);
+    try {
+      const token = localStorage.getItem('JWT_TOKEN');
+      const formData = new FormData();
+      formData.append('document', file);
+      const response = await Client.postFormData(
+        `/listings/${listingId}/verification-document`,
+        formData,
+        { Authorization: `Bearer ${token}` },
+      );
+      if (response.status === 200 || response.status === 201) {
+        setSuccessMsg('Document re-submitted. We will review it shortly.');
+        await readCurrentUser();
+      } else {
+        setErrorMsg(response.data?.message ?? 'Unable to upload document. Please try again.');
+      }
+    } catch {
+      setErrorMsg('Unable to reach the server. Please try again.');
+    } finally {
+      setResubmitting(false);
+      setResubmitListingId(null);
     }
   };
 
@@ -575,11 +609,18 @@ const Dashboard: React.FC = () => {
                 {/* Title + status */}
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-base sm:text-lg font-poppins-bold text-slate-700">
-                    {listing.currentType} → {listing.desiredType}
+                    {listing.listingType === 'SEEKING'
+                      ? <>Seeking: {listing.desiredType}</>
+                      : <>{listing.currentType} → {listing.desiredType}</>}
                   </h3>
                   <span className={`text-xs font-poppins-bold px-2 py-1 rounded-full ${STATUS_COLORS[listing.status]}`}>
                     {listing.status}
                   </span>
+                  {listing.listingType === 'SEEKING' && (
+                    <span className="text-xs font-poppins-bold px-2 py-1 rounded-full bg-purple-100 text-purple-700">
+                      Seeker
+                    </span>
+                  )}
                   {listing.expiresAt && (
                     <span className="text-xs text-amber-500 font-poppins-medium flex items-center gap-1">
                       <Clock4 size={11} /> Expires {formatDate(listing.expiresAt)}
@@ -589,13 +630,15 @@ const Dashboard: React.FC = () => {
 
                 {/* Action buttons — wrap on mobile */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setVacancyListing(listing)}
-                    className="flex items-center gap-1.5 text-xs border border-emerald-200 px-3 py-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 font-poppins-medium transition-all whitespace-nowrap"
-                  >
-                    <Bell size={13} />
-                    Vacancy Alert
-                  </button>
+                  {listing.listingType !== 'SEEKING' && (
+                    <button
+                      onClick={() => setVacancyListing(listing)}
+                      className="flex items-center gap-1.5 text-xs border border-emerald-200 px-3 py-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 font-poppins-medium transition-all whitespace-nowrap"
+                    >
+                      <Bell size={13} />
+                      Vacancy Alert
+                    </button>
+                  )}
                   <button
                     onClick={() => setUpdateListing(listing)}
                     className="flex items-center gap-1.5 text-xs border border-slate-200 px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-50 font-poppins-medium transition-all whitespace-nowrap"
@@ -605,36 +648,96 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
 
+              {/* Verification banners */}
+              {listing.listingType === 'SEEKING' && listing.verificationStatus === 'PENDING' && (
+                <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 flex items-start gap-3">
+                  <CheckCircle2 size={18} className="text-amber-500 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-poppins-bold text-amber-800">Verification Under Review</p>
+                    <p className="text-xs font-poppins-regular text-amber-700 mt-0.5">
+                      Your document has been submitted and is being reviewed by our team. We will notify you once approved.
+                    </p>
+                  </div>
+                </div>
+              )}
+              {listing.listingType === 'SEEKING' && listing.verificationStatus === 'REJECTED' && (
+                <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle size={18} className="text-red-500 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-poppins-bold text-red-800">Verification Rejected</p>
+                      {listing.verificationNote && (
+                        <p className="text-xs font-poppins-regular text-red-700 mt-0.5">{listing.verificationNote}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={resubmitting && resubmitListingId === listing.id}
+                      onClick={() => {
+                        setResubmitListingId(listing.id);
+                        resubmitFileRef.current?.click();
+                      }}
+                      className="self-start inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-white px-3 py-1.5 text-xs font-poppins-bold text-red-600 transition-all hover:bg-red-50 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <FileUp size={11} />
+                      {resubmitting && resubmitListingId === listing.id ? 'Uploading…' : 'Re-submit'}
+                    </button>
+                  </div>
+                  <input
+                    ref={resubmitListingId === listing.id ? resubmitFileRef : undefined}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void handleResubmitDocument(listing.id, file);
+                      e.target.value = '';
+                    }}
+                  />
+                </div>
+              )}
+
               {/* Listing summary card */}
               <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 mb-6">
-                <div className="flex-1">
-                  <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">Leaving</p>
-                  <p className="font-poppins-bold text-slate-800 text-sm">{listing.currentType} · {listing.currentCity}</p>
-                  <p className="text-xs text-slate-500 font-poppins-regular mt-0.5">₦{listing.currentRent.toLocaleString()} / yr</p>
-                  {listing.currentAvailable ? (
-                    <p className="text-xs text-emerald-600 font-poppins-medium mt-0.5 flex items-center gap-1">
-                      <BadgeCheck size={11} className="shrink-0" /> Available {formatDate(listing.currentAvailableOn)}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-slate-400 font-poppins-regular mt-0.5">Not yet available</p>
-                  )}
-                </div>
+                {listing.listingType !== 'SEEKING' && (
+                  <>
+                    <div className="flex-1">
+                      <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">Leaving</p>
+                      <p className="font-poppins-bold text-slate-800 text-sm">{listing.currentType} · {listing.currentCity}</p>
+                      <p className="text-xs text-slate-500 font-poppins-regular mt-0.5">₦{listing.currentRent.toLocaleString()} / yr</p>
+                      {listing.currentAvailable ? (
+                        <p className="text-xs text-emerald-600 font-poppins-medium mt-0.5 flex items-center gap-1">
+                          <BadgeCheck size={11} className="shrink-0" /> Available {formatDate(listing.currentAvailableOn)}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-slate-400 font-poppins-regular mt-0.5">Not yet available</p>
+                      )}
+                    </div>
 
-                {/* Arrow: horizontal on sm+, hidden on xs (vertical flow is implicit) */}
-                <div className="hidden sm:flex items-center text-emerald-400">
-                  <ArrowRight size={18} />
-                </div>
-                <div className="flex sm:hidden items-center text-emerald-300">
-                  <ChevronDown size={16} />
-                </div>
+                    {/* Arrow: horizontal on sm+, hidden on xs (vertical flow is implicit) */}
+                    <div className="hidden sm:flex items-center text-emerald-400">
+                      <ArrowRight size={18} />
+                    </div>
+                    <div className="flex sm:hidden items-center text-emerald-300">
+                      <ChevronDown size={16} />
+                    </div>
+                  </>
+                )}
 
                 <div className="flex-1">
-                  <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">Looking For</p>
+                  <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">
+                    {listing.listingType === 'SEEKING' ? 'Looking For' : 'Looking For'}
+                  </p>
                   <p className="font-poppins-bold text-slate-800 text-sm">{listing.desiredType} · {listing.desiredCity}</p>
                   <p className="text-xs text-slate-500 font-poppins-regular mt-0.5">Budget: ₦{listing.maxBudget.toLocaleString()} / yr</p>
                   <p className="text-xs text-slate-500 font-poppins-regular mt-0.5 flex items-center gap-1">
                     <CalendarClock size={11} className="shrink-0" /> {listing.timeline}
                   </p>
+                  {listing.listingType === 'SEEKING' && listing.seekerCategory && (
+                    <p className="text-xs text-purple-600 font-poppins-medium mt-0.5 capitalize">
+                      {listing.seekerCategory.replace('_', ' ').toLowerCase()}
+                    </p>
+                  )}
                 </div>
 
                 {listing.features.length > 0 && (
@@ -765,41 +868,57 @@ const Dashboard: React.FC = () => {
                 );
               })()}
 
-              {/* Matches */}
-              <div>
-                <h4 className="text-sm font-poppins-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  Potential Matches
-                  {listing.matchCount > 0 && (
-                    <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-poppins-medium normal-case tracking-normal">
-                      {listing.matchCount}
-                    </span>
-                  )}
-                </h4>
+              {/* Matches — only for SWAP listings */}
+              {listing.listingType === 'SEEKING' ? (
+                <div className="bg-white p-8 sm:p-10 rounded-2xl border border-dashed border-purple-100 text-center">
+                  <div className="text-purple-200 flex justify-center mb-3">
+                    <Search size={36} />
+                  </div>
+                  <p className="text-slate-400 font-poppins-bold text-sm">Seeker Listing</p>
+                  <p className="text-slate-300 font-poppins-regular text-xs mt-1">
+                    {listing.verificationStatus === 'PENDING'
+                      ? 'Your application is under review. Matches will be surfaced once approved.'
+                      : listing.verificationStatus === 'APPROVED'
+                        ? 'Your listing is active. We will notify you when matches are found.'
+                        : 'Complete verification to activate your listing.'}
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <h4 className="text-sm font-poppins-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    Potential Matches
+                    {listing.matchCount > 0 && (
+                      <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-poppins-medium normal-case tracking-normal">
+                        {listing.matchCount}
+                      </span>
+                    )}
+                  </h4>
 
-                {listing.matches.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {listing.matches.map((match) => (
-                      <MatchCard
-                        key={match.id}
-                        match={match}
-                        relatedRequest={outgoingRequestByListingId.get(match.targetListing.id)}
-                        onRequestAgain={handleConnect}
-                        setSelectedMatch={setSelectedMatch}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                    <div className="bg-white p-8 sm:p-10 rounded-2xl border border-dashed border-slate-200 text-center">
-                    <div className="text-slate-200 flex justify-center mb-3">
-                        <Link2Off size={36} />
+                  {listing.matches.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {listing.matches.map((match) => (
+                        <MatchCard
+                          key={match.id}
+                          match={match}
+                          relatedRequest={outgoingRequestByListingId.get(match.targetListing.id)}
+                          onRequestAgain={handleConnect}
+                          setSelectedMatch={setSelectedMatch}
+                        />
+                      ))}
                     </div>
-                    <p className="text-slate-400 font-poppins-bold text-sm">No matches yet</p>
-                    <p className="text-slate-300 font-poppins-regular text-xs mt-1">
-                      We will notify you when someone matches this listing.
-                    </p>
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <div className="bg-white p-8 sm:p-10 rounded-2xl border border-dashed border-slate-200 text-center">
+                      <div className="text-slate-200 flex justify-center mb-3">
+                        <Link2Off size={36} />
+                      </div>
+                      <p className="text-slate-400 font-poppins-bold text-sm">No matches yet</p>
+                      <p className="text-slate-300 font-poppins-regular text-xs mt-1">
+                        We will notify you when someone matches this listing.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {listingIndex < currentUser.listings.length - 1 && (
                 <div className="border-b border-slate-100 mt-12" />

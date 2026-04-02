@@ -29,7 +29,6 @@ const step1Schema = z.object({
   desiredType: z.enum(PROPERTY_TYPES as [string, ...string[]], 'Select a property type'),
   desiredState: z.enum(ALLOWED_SWAP_STATES, 'Select a state'),
   desiredCity: z.string().trim().min(1, 'Select a city'),
-  desiredArea: z.string().trim().optional(),
   maxBudget: z
     .number('Budget must be a number')
     .positive('Budget must be greater than ₦0')
@@ -42,27 +41,6 @@ const step1Schema = z.object({
       path: ['desiredCity'],
       message: 'Select a valid city',
     })
-  }
-
-  const areas = getSwapAreasForCity(data.desiredState, data.desiredCity)
-
-  if (areas.length > 0) {
-    if (!data.desiredArea) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['desiredArea'],
-        message: 'Select an area',
-      })
-      return
-    }
-
-    if (!areas.includes(data.desiredArea)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['desiredArea'],
-        message: 'Select a valid area',
-      })
-    }
   }
 })
 
@@ -146,7 +124,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
   const { token } = useToken()
   const desiredLocation = parseStoredSwapLocation(
     listing.desiredState && listing.desiredCity
-      ? [listing.desiredArea, listing.desiredCity, listing.desiredState].filter(Boolean).join(', ')
+      ? [listing.desiredCity, listing.desiredState].filter(Boolean).join(', ')
       : listing.desiredCity
   )
   const currentLocation = parseStoredSwapLocation(
@@ -159,7 +137,6 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
   const [desiredType, setDesiredType] = useState<PropertyType>(listing.desiredType as PropertyType)
   const [desiredState, setDesiredState] = useState<Location>((listing.desiredState as Location) || desiredLocation.state)
   const [desiredCity, setDesiredCity] = useState(listing.desiredCity || desiredLocation.city)
-  const [desiredArea, setDesiredArea] = useState(listing.desiredArea || desiredLocation.area)
 
   const [maxBudget, setMaxBudget] = useState<number>(listing.maxBudget)
   const [budgetDisplay, setBudgetDisplay] = useState(listing.maxBudget.toLocaleString('en-NG'))
@@ -183,7 +160,6 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
 
   const desiredCities = getAllowedSwapCities(desiredState)
   const currentCities = getAllowedSwapCities(currentState)
-  const desiredAreas = getSwapAreasForCity(desiredState, desiredCity)
   const currentAreas = getSwapAreasForCity(currentState, currentCity)
 
   useEffect(() => {
@@ -199,7 +175,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
 
   const goNext = () => {
     if (step === 0) {
-      const result = step1Schema.safeParse({ desiredType, desiredState, desiredCity, desiredArea, maxBudget, timeline })
+      const result = step1Schema.safeParse({ desiredType, desiredState, desiredCity, maxBudget, timeline })
       if (!result.success) {
         const errs: AllErrors = {}
         result.error.issues.forEach(i => { errs[i.path[0] as keyof AllErrors] = i.message })
@@ -251,7 +227,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
       desiredType,
       desiredState,
       desiredCity,
-      desiredArea: desiredArea || null,
+      desiredArea: null,
       maxBudget,
       timeline,
       currentRent,
@@ -422,7 +398,6 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
                     value={desiredCity}
                     onChange={e => {
                       setDesiredCity(e.target.value)
-                      setDesiredArea('')
                     }}
                     disabled={desiredState === 'No Option'}
                     className={fc('desiredCity')}
@@ -431,22 +406,6 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
                     {desiredCities.map(city => <option key={city} value={city}>{city}</option>)}
                   </select>
                   <Err field="desiredCity" />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Desired Area / Region</label>
-                  <select
-                    value={desiredArea}
-                    onChange={e => setDesiredArea(e.target.value)}
-                    disabled={!desiredCity || desiredAreas.length === 0}
-                    className={fc('desiredArea')}
-                  >
-                    <option value="" disabled>
-                      {!desiredCity ? 'Select city first…' : desiredAreas.length === 0 ? 'No areas configured yet' : 'Select area…'}
-                    </option>
-                    {desiredAreas.map(area => <option key={area} value={area}>{area}</option>)}
-                  </select>
-                  <Err field="desiredArea" />
                 </div>
 
                 <div>
@@ -633,7 +592,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
                 <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
                   <p className="text-[10px] font-poppins-bold text-emerald-600 uppercase tracking-widest mb-3">Looking For</p>
                   <p className="font-poppins-bold text-slate-800">{desiredType}</p>
-                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(desiredState, desiredCity, desiredArea)}</p>
+                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(desiredState, desiredCity, null)}</p>
                   <p className="text-slate-500 font-poppins-regular text-sm">₦{maxBudget.toLocaleString()} / yr</p>
                   <p className="text-slate-500 font-poppins-regular text-sm">{timeline}</p>
                 </div>

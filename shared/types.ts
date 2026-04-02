@@ -129,6 +129,12 @@ export interface UnregisteredUser {
 
 export type ListingStatus = 'DRAFT' | 'ACTIVE' | 'MATCHED' | 'CLOSED' | 'EXPIRED'
 
+export type ListingType = 'SWAP' | 'SEEKING'
+
+export type SeekerCategory = 'NYSC' | 'WORK' | 'SCHOOL' | 'FAMILY_HOME' | 'OTHER'
+
+export type VerificationStatus = 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED'
+
 export type ListingCloseReason =
   | 'MATCHED'
   | 'EXPIRED'
@@ -140,6 +146,11 @@ export interface SwapListing {
   id: string
   userId: string
   status: ListingStatus
+  listingType: ListingType
+  seekerCategory: SeekerCategory | null
+  verificationStatus: VerificationStatus | null
+  verificationDocumentUrl: string | null
+  verificationNote: string | null
 
   // What the user is looking for
   desiredType: string
@@ -234,6 +245,11 @@ export interface UserSwapListing {
   id: string;
   userId: string;
   status: 'DRAFT' | 'ACTIVE' | 'MATCHED' | 'CLOSED' | 'EXPIRED';
+  listingType: ListingType;
+  seekerCategory: SeekerCategory | null;
+  verificationStatus: VerificationStatus | null;
+  verificationDocumentUrl: string | null;
+  verificationNote: string | null;
   desiredType: string;
   desiredState: string;
   desiredCity: string;
@@ -291,6 +307,8 @@ export interface User {
   workplaceArea: string | null;
   workplaceCity: string | null;
   workplaceState: string | null;
+  nin: string | null;
+  ninVerifiedAt: string | null;
   createdAt: string;
   listings: UserSwapListing[];
 }

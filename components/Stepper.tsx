@@ -2,11 +2,14 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 
-const STEPS = ['Looking For', 'Leaving From', 'Vacancy Alert', 'Confirm'];
+const DEFAULT_STEPS = ['Looking For', 'Leaving From', 'Vacancy Alert', 'Confirm'];
 
-const StepHeader: React.FC<{ current: number }> = ({ current }) => (
+const StepHeader: React.FC<{ current: number; steps?: string[] }> = ({
+  current,
+  steps = DEFAULT_STEPS,
+}) => (
   <div className="mb-10 flex items-center justify-center">
-    {STEPS.map((label: string, idx: number) => {
+    {steps.map((label: string, idx: number) => {
       const done = idx < current;
       const active = idx === current;
 
@@ -46,7 +49,7 @@ const StepHeader: React.FC<{ current: number }> = ({ current }) => (
               {label}
             </motion.span>
           </motion.div>
-          {idx < STEPS.length - 1 && (
+          {idx < steps.length - 1 && (
             <motion.div
               initial={false}
               animate={{
