@@ -388,7 +388,6 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
                     onChange={e => {
                       setDesiredState(e.target.value as Location)
                       setDesiredCity('')
-                      setDesiredArea('')
                     }}
                     className={fc('desiredState')}
                   >
