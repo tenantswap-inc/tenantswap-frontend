@@ -603,7 +603,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
                 <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
                   <p className="text-[10px] font-poppins-bold text-emerald-600 uppercase tracking-widest mb-3">Looking For</p>
                   <p className="font-poppins-bold text-slate-800">{desiredType}</p>
-                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(desiredState, desiredCity, null)}</p>
+                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(desiredState, desiredCity, undefined)}</p>
                   <p className="text-slate-500 font-poppins-regular text-sm">₦{maxBudget.toLocaleString()} / yr</p>
                   <p className="text-slate-500 font-poppins-regular text-sm">{timeline}</p>
                 </div>
