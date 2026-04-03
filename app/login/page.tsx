@@ -112,6 +112,31 @@ const Login: React.FC = () => {
 
         setSuccessMsg("Login successful")
         localStorage.setItem("JWT_TOKEN", token)
+
+        // Upload pending profile photo from onboarding if present
+        const pendingPhotoData = sessionStorage.getItem('pending_profile_photo_data');
+        const pendingPhotoMime = sessionStorage.getItem('pending_profile_photo_mime');
+        if (pendingPhotoData && pendingPhotoMime) {
+          try {
+            const byteString = atob(pendingPhotoData.split(',')[1]);
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+            const blob = new Blob([ab], { type: pendingPhotoMime });
+            const ext = pendingPhotoMime === 'image/png' ? 'png' : pendingPhotoMime === 'image/webp' ? 'webp' : 'jpg';
+            const form = new FormData();
+            form.append('photo', blob, `profile.${ext}`);
+            await fetch(`${(process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '')}/users/me/profile-photo`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}` },
+              body: form,
+            });
+          } catch { /* non-critical — skip */ } finally {
+            sessionStorage.removeItem('pending_profile_photo_data');
+            sessionStorage.removeItem('pending_profile_photo_mime');
+          }
+        }
+
         router.replace("/dashboard")
         return
       }

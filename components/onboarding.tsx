@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import { PhoneCall, Info, CheckCircle2, AlertCircle, ShieldCheck, Briefcase, ChevronRight, ChevronLeft } from 'lucide-react';
+import React, { useMemo, useRef, useState } from 'react';
+import { PhoneCall, Info, CheckCircle2, AlertCircle, ShieldCheck, Briefcase, ChevronRight, ChevronLeft, Camera, X } from 'lucide-react';
 import Image from 'next/image';
 import type { RegisteredUser } from '@/app/register/page';
 import {
@@ -31,6 +31,11 @@ const Onboarding: React.FC<OnboardingProps> = ({ currentUser, onComplete, isLoad
   const [workplaceCity, setWorkplaceCity] = useState('');
   const [workplaceArea, setWorkplaceArea] = useState('');
 
+  // Profile photo (optional)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoMime, setPhotoMime] = useState<string>('');
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
   const [error, setError] = useState('');
 
   const cities = useMemo(() => getAllowedSwapCities(workplaceState), [workplaceState]);
@@ -47,6 +52,13 @@ const Onboarding: React.FC<OnboardingProps> = ({ currentUser, onComplete, isLoad
 
   const handleComplete = (skip = false) => {
     if (!currentUser) return;
+    // Store pending profile photo in sessionStorage for upload after first login
+    if (!skip && photoPreview && photoMime) {
+      try {
+        sessionStorage.setItem('pending_profile_photo_data', photoPreview);
+        sessionStorage.setItem('pending_profile_photo_mime', photoMime);
+      } catch { /* quota exceeded — skip */ }
+    }
     const updatedUser: RegisteredUser = {
       ...currentUser,
       canConnectLandlord: canConnect!,
@@ -58,6 +70,21 @@ const Onboarding: React.FC<OnboardingProps> = ({ currentUser, onComplete, isLoad
       ...(!skip && workplaceArea ? { workplaceArea } : {}),
     };
     onComplete(updatedUser);
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Only JPEG, PNG, or WebP images are allowed.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPhotoPreview(ev.target?.result as string);
+      setPhotoMime(file.type);
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -236,6 +263,48 @@ const Onboarding: React.FC<OnboardingProps> = ({ currentUser, onComplete, isLoad
                 <p className="text-emerald-800 text-xs font-poppins-regular leading-relaxed">
                   Adding your workplace helps us surface listings closer to your office. All fields are optional — you can always fill this in later from Settings.
                 </p>
+              </div>
+
+              {/* Profile photo */}
+              <div className="space-y-2">
+                <label className="text-xs font-poppins-bold text-slate-500 uppercase tracking-wider">Profile Photo</label>
+                <div className="flex items-center gap-4">
+                  <div className="relative flex-shrink-0">
+                    {photoPreview ? (
+                      <img src={photoPreview} alt="Preview" className="w-16 h-16 rounded-full object-cover border-2 border-emerald-200" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-slate-100 border-2 border-dashed border-slate-200 flex items-center justify-center">
+                        <Camera size={22} className="text-slate-300" />
+                      </div>
+                    )}
+                    {photoPreview && (
+                      <button
+                        type="button"
+                        onClick={() => { setPhotoPreview(null); setPhotoMime(''); if (photoInputRef.current) photoInputRef.current.value = ''; }}
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                      >
+                        <X size={10} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <button
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-poppins-medium text-slate-500 hover:border-emerald-400 hover:text-emerald-600 transition-all text-left"
+                    >
+                      {photoPreview ? 'Change photo…' : 'Upload a photo…'}
+                    </button>
+                    <p className="text-[10px] text-slate-400 font-poppins-regular mt-1">JPEG, PNG or WebP · optional</p>
+                  </div>
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handlePhotoSelect}
+                    className="hidden"
+                  />
+                </div>
               </div>
 
               {/* Workplace name */}

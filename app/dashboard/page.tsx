@@ -23,6 +23,8 @@ import {
   CheckCircle2,
   FileUp,
   Search,
+  Share2,
+  Copy,
 } from 'lucide-react';
 import { Client } from '@/shared/utils/ApiClient';
 import { useRouter } from 'next/navigation';
@@ -86,6 +88,7 @@ const Dashboard: React.FC = () => {
   const [vacancyListing, setVacancyListing] = useState<UserSwapListing | null>(null);
   const [vacancySaving, setVacancySaving] = useState(false);
   const [myVacancies, setMyVacancies] = useState<VacancyAlert[]>([]);
+  const [copiedVacancyId, setCopiedVacancyId] = useState<string | null>(null);
   const [resubmitListingId, setResubmitListingId] = useState<string | null>(null);
   const [resubmitting, setResubmitting] = useState(false);
   const resubmitFileRef = useRef<HTMLInputElement | null>(null);
@@ -771,6 +774,23 @@ const Dashboard: React.FC = () => {
                           </p>
                         </div>
                         <div className="flex items-center gap-2 self-start">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const url = `${window.location.origin}/vacancy/${v.id}`;
+                              if (navigator.share) {
+                                try { await navigator.share({ title: 'Vacancy Alert — TenantSwap', url }); } catch { /* cancelled */ }
+                              } else {
+                                await navigator.clipboard.writeText(url);
+                                setCopiedVacancyId(v.id);
+                                setTimeout(() => setCopiedVacancyId(null), 2000);
+                              }
+                              void Client.post(`/vacancy/${v.id}/share`, {}, { Authorization: `Bearer ${localStorage.getItem('JWT_TOKEN')}` }).catch(() => undefined);
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-amber-700 transition-all hover:bg-amber-50 whitespace-nowrap"
+                          >
+                            {copiedVacancyId === v.id ? <><Copy size={12} /> Copied!</> : <><Share2 size={12} /> Share</>}
+                          </button>
                           <button
                             type="button"
                             onClick={async () => {

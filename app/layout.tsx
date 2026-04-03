@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Providers } from "./provider";
+import PostHogProvider from "@/components/PostHogProvider";
 
 
 const url = process.env.API_URL as string;
@@ -41,13 +42,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={` antialiased`}>
-        <Providers>
-
-        <GoogleOAuthProvider clientId={clientId}>
-            {children}
-        </GoogleOAuthProvider>
-
-        </Providers>
+        <PostHogProvider>
+          <Providers>
+            <GoogleOAuthProvider clientId={clientId}>
+              {children}
+            </GoogleOAuthProvider>
+          </Providers>
+        </PostHogProvider>
       </body>
     </html>
   );
