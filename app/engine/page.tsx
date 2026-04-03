@@ -715,7 +715,7 @@ const Engine: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Is the apartment available?</label>
-                    <select value={currentAvailable === null ? 'No Option' : String(currentAvailable)} onChange={e => setCurrentAvailable(e.target.value === 'true')} className={fc('currentAvailable')}>
+                    <select value={currentAvailable === null ? 'No Option' : String(currentAvailable)} onChange={e => { setCurrentAvailable(e.target.value === 'true'); if (e.target.value === 'false') setCurrentAvailableOn('') }} className={fc('currentAvailable')}>
                       <option value="No Option" disabled>Select…</option>
                       <option value="true">Yes, it is available</option>
                       <option value="false">No, not yet</option>
@@ -723,14 +723,13 @@ const Engine: React.FC = () => {
                     <Err field="currentAvailable" />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Available On</label>
-                    <input type="date" disabled={!currentAvailable} value={currentAvailableOn} onChange={e => setCurrentAvailableOn(e.target.value)} className={fc('currentAvailableOn')} />
-                    {!currentAvailable && currentAvailable !== null && (
-                      <p className="text-xs font-poppins-regular text-slate-400 mt-1">Select "Yes, it is available" above to set a date.</p>
-                    )}
-                    <Err field="currentAvailableOn" />
-                  </div>
+                  {currentAvailable !== false && (
+                    <div>
+                      <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Available On</label>
+                      <input type="date" value={currentAvailableOn} onChange={e => setCurrentAvailableOn(e.target.value)} className={fc('currentAvailableOn')} />
+                      <Err field="currentAvailableOn" />
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -882,7 +881,7 @@ const Engine: React.FC = () => {
                   <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
                     <p className="text-[10px] font-poppins-bold text-emerald-600 uppercase tracking-widest mb-3">Looking For</p>
                     <p className="font-poppins-bold text-slate-800">{desiredType}</p>
-                    <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(desiredState, desiredCity, null)}</p>
+                    <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(desiredState, desiredCity, undefined)}</p>
                     <p className="text-slate-500 font-poppins-regular text-sm">₦{maxBudget.toLocaleString()} / yr</p>
                     <p className="text-slate-500 font-poppins-regular text-sm">{timeline}</p>
                   </div>
@@ -1041,7 +1040,7 @@ const Engine: React.FC = () => {
                 <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
                   <p className="text-[10px] font-poppins-bold text-emerald-600 uppercase tracking-widest mb-3">Looking For</p>
                   <p className="font-poppins-bold text-slate-800">{desiredType}</p>
-                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(desiredState, desiredCity, null)}</p>
+                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(desiredState, desiredCity, undefined)}</p>
                   <p className="text-slate-500 font-poppins-regular text-sm">Budget: ₦{maxBudget.toLocaleString()} / yr</p>
                   <p className="text-slate-500 font-poppins-regular text-sm">Timeline: {timeline}</p>
                 </div>

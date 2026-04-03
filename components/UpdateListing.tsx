@@ -294,10 +294,16 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
     }
   }
 
-  const fc = (key: keyof AllErrors) =>
-    `w-full p-4 rounded-xl border outline-none transition-all appearance-none bg-no-repeat bg-[right_1rem_center] ${errors[key]
-      ? 'border-red-400 focus:border-red-500'
-      : 'border-slate-200 focus:border-emerald-500'
+  const isAvailableOnStale =
+    listing.currentAvailable === true &&
+    !!listing.currentAvailableOn &&
+    new Date(listing.currentAvailableOn) < new Date()
+
+  const fc = (key: keyof AllErrors, forceHighlight = false) =>
+    `w-full p-4 rounded-xl border outline-none transition-all appearance-none bg-no-repeat bg-[right_1rem_center] ${
+      errors[key] || forceHighlight
+        ? 'border-red-400 focus:border-red-500'
+        : 'border-slate-200 focus:border-emerald-500'
     }`
 
   const Err = ({ field }: { field: keyof AllErrors }) =>
@@ -512,10 +518,15 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
 
                 <div>
                   <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Is the apartment available?</label>
+                  {isAvailableOnStale && !errors.currentAvailable && (
+                    <p className="text-xs font-poppins-medium text-red-500 mb-1.5">
+                      Your listed available date has passed — please update or mark as unavailable.
+                    </p>
+                  )}
                   <select
                     value={currentAvailable === null ? 'No Option' : String(currentAvailable)}
-                    onChange={e => setCurrentAvailable(e.target.value === 'true')}
-                    className={fc('currentAvailable')}
+                    onChange={e => { setCurrentAvailable(e.target.value === 'true'); if (e.target.value === 'false') setCurrentAvailableOn('') }}
+                    className={fc('currentAvailable', isAvailableOnStale)}
                   >
                     <option value="No Option" disabled>Select…</option>
                     <option value="true">Yes, it is available</option>
@@ -524,17 +535,18 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
                   <Err field="currentAvailable" />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Available On</label>
-                  <input
-                    type="date"
-                    disabled={!currentAvailable}
-                    value={currentAvailableOn}
-                    onChange={e => setCurrentAvailableOn(e.target.value)}
-                    className={fc('currentAvailableOn')}
-                  />
-                  <Err field="currentAvailableOn" />
-                </div>
+                {currentAvailable !== false && (
+                  <div>
+                    <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Available On</label>
+                    <input
+                      type="date"
+                      value={currentAvailableOn}
+                      onChange={e => setCurrentAvailableOn(e.target.value)}
+                      className={fc('currentAvailableOn', isAvailableOnStale)}
+                    />
+                    <Err field="currentAvailableOn" />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

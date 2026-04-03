@@ -236,7 +236,7 @@ export function connectLiveUpdates(token: string, handlers: LiveUpdateHandlers) 
           break
         case 'interests.updated':
           emitLiveUpdateCue('request')
-          if (suppressInterestSound) {
+          if (suppressInterestSound || eventData?.notificationType === 'INTEREST_SENT') {
             suppressInterestSound = false
           } else {
             playLiveUpdateSound('request')

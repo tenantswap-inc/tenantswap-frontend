@@ -232,16 +232,14 @@ const Navbar: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      const response = await Client.post('/auth/logout', {}, {
+      await Client.post('/auth/logout', {}, {
         Authorization: `Bearer ${token}`,
       })
-
-      if ([200, 201, 401, 403].includes(response.status)) {
-        localStorage.removeItem('JWT_TOKEN')
-        router.replace('/')
-      }
-    } catch (error) {
-      console.error('Error logging out:', error)
+    } catch {
+      // ignore — we log out locally regardless
+    } finally {
+      localStorage.removeItem('JWT_TOKEN')
+      window.location.href = '/'
     }
   }
 

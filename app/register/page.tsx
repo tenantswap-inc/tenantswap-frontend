@@ -49,6 +49,10 @@ export type RegisteredUser = FormData & {
   canConnectLandlord: boolean
   hasLandlordContact: boolean
   allowIncomingCalls: boolean
+  workplaceName?: string
+  workplaceState?: string
+  workplaceCity?: string
+  workplaceArea?: string
 }
 
 /* ========================= COMPONENT ========================= */
@@ -164,7 +168,10 @@ const Register: React.FC = () => {
         canConnectLandlord: updatedUser.canConnectLandlord,
         hasLandlordContact: updatedUser.hasLandlordContact,
         allowIncomingCalls: updatedUser.allowIncomingCalls,
-
+        ...(updatedUser.workplaceName ? { workplaceName: updatedUser.workplaceName } : {}),
+        ...(updatedUser.workplaceState ? { workplaceState: updatedUser.workplaceState } : {}),
+        ...(updatedUser.workplaceCity ? { workplaceCity: updatedUser.workplaceCity } : {}),
+        ...(updatedUser.workplaceArea ? { workplaceArea: updatedUser.workplaceArea } : {}),
       })
 
       const message = response.data.message
