@@ -13,6 +13,7 @@ import { Client } from "@/shared/utils/ApiClient"
 import GoogleSignInButton from "@/components/GoogleSignInButton"
 import { Check } from "lucide-react"
 import Toasts from "@/components/Toasts"
+import posthog from "posthog-js"
 
 
 /* ========================= ZOD SCHEMA ========================= */
@@ -177,6 +178,17 @@ const Register: React.FC = () => {
       const message = response.data.message
 
       if (response.status === 201 || response.status === 200 || response.status === 204) {
+        posthog.identify(updatedUser.phone, {
+          name: updatedUser.fullName,
+          gender: updatedUser.gender,
+          occupation: updatedUser.occupation,
+        })
+        posthog.capture("user_registered", {
+          method: "password",
+          gender: updatedUser.gender,
+          occupation: updatedUser.occupation,
+          has_workplace: !!updatedUser.workplaceName,
+        })
         setSuccessMsg("Registration successful. Check your email for verification mail.");
 
       }
@@ -197,6 +209,7 @@ const Register: React.FC = () => {
 
       }
     } catch (error: any) {
+      posthog.captureException(error)
       if (error.response) {
         setAlertMsg(error.response.data?.message || "Registration failed.")
       } else {

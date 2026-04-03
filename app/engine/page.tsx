@@ -15,6 +15,7 @@ import { BinocularsIcon, DoorOpenIcon } from 'lucide-react';
 import { Client } from '@/shared/utils/ApiClient';
 import { useToken, unsetToken } from '@/shared/hooks/useToken';
 import type { Location } from '@/shared/types';
+import posthog from 'posthog-js';
 import {
   ALLOWED_SWAP_STATES,
   formatSwapLocation,
@@ -357,6 +358,16 @@ const Engine: React.FC = () => {
 
       const listingId = response.data?.listing?.id
 
+      posthog.capture('listing_created', {
+        listing_type: listingMode,
+        desired_city: desiredCity,
+        desired_state: desiredState,
+        desired_type: desiredType,
+        max_budget: maxBudget,
+        timeline,
+        ...(listingMode === 'SEEKING' ? { seeker_category: seekerCategory } : {}),
+      })
+
       // Upload verification document if required
       if (isSeeking && isDocumentCategory && verificationFile && listingId) {
         const formData = new FormData()
@@ -371,6 +382,7 @@ const Engine: React.FC = () => {
       router.push('/dashboard')
     } catch (e) {
       console.error('Listing submit error:', e)
+      posthog.captureException(e)
       setAlertMsg('Unable to reach the server. Please check your connection.')
     } finally {
       setLoading(false)

@@ -46,3 +46,4 @@ next-env.d.ts
 # OAuth client secrets
 client_secret_*.json
 dump.rdb
+.env.local

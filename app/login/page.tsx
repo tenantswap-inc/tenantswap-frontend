@@ -10,6 +10,7 @@ import { z } from "zod"
 import { Client } from "@/shared/utils/ApiClient"
 import GoogleSignInButton from "@/components/GoogleSignInButton"
 import Toasts from "@/components/Toasts"
+import posthog from "posthog-js"
 
 const loginSchema = z.object({
   phone: z
@@ -113,6 +114,9 @@ const Login: React.FC = () => {
         setSuccessMsg("Login successful")
         localStorage.setItem("JWT_TOKEN", token)
 
+        posthog.identify(user.phone)
+        posthog.capture("user_logged_in", { method: "password" })
+
         // Upload pending profile photo from onboarding if present
         const pendingPhotoData = sessionStorage.getItem('pending_profile_photo_data');
         const pendingPhotoMime = sessionStorage.getItem('pending_profile_photo_mime');
@@ -149,11 +153,13 @@ const Login: React.FC = () => {
         const error = message.toLowerCase()
 
         if (error === "invalid credentials") {
+          posthog.capture("user_login_failed", { reason: "invalid_credentials", status: 401 })
           setAlertMsg(message)
              return;
         }
 
 
+        posthog.capture("user_login_failed", { reason: "unverified_email", status: 401 })
         setReverifyMsg(
           response.data?.message ?? "Your email is not verified."
         )
@@ -162,29 +168,35 @@ const Login: React.FC = () => {
       }
 
       if (response.status === 403) {
+        posthog.capture("user_login_failed", { reason: "account_suspended", status: 403 })
         setAlertMsg("Your account has been suspended. Please contact support.")
         return
       }
 
       if (response.status === 404) {
+        posthog.capture("user_login_failed", { reason: "account_not_found", status: 404 })
         setAlertMsg("No account found with that phone number.")
         return
       }
 
       if (response.status === 422) {
+        posthog.capture("user_login_failed", { reason: "validation_error", status: 422 })
         setAlertMsg("Please check your details and try again.")
         return
       }
 
       if (response.status === 429) {
+        posthog.capture("user_login_failed", { reason: "rate_limited", status: 429 })
         setAlertMsg("Too many login attempts. Please wait a few minutes.")
         return
       }
 
+      posthog.capture("user_login_failed", { reason: "unknown", status: response.status })
       setAlertMsg("Something went wrong. Please try again.")
 
     } catch (e) {
       console.error("Login error:", e)
+      posthog.captureException(e)
       setAlertMsg("Unable to reach the server. Please check your connection.")
     } finally {
       setLoading(false)

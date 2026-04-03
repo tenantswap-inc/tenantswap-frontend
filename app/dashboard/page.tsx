@@ -44,6 +44,7 @@ import {
   playLiveUpdateSound,
   type LiveUpdateEventDetail,
 } from '@/shared/utils/liveUpdates';
+import posthog from 'posthog-js';
 
 function getActiveListing(listings: UserSwapListing[]): UserSwapListing | null {
   if (!listings?.length) return null;
@@ -185,6 +186,7 @@ const Dashboard: React.FC = () => {
       );
 
       if (response.status === 200 || response.status === 201) {
+        posthog.capture('swap_request_sent', { target_listing_id: targetListingId });
         setSelectedMatch(null);
         setSuccessMsg('Connection request sent!');
         await readRequests();
@@ -206,7 +208,10 @@ const Dashboard: React.FC = () => {
     try {
       const token = localStorage.getItem('JWT_TOKEN');
       const response = await Client.post(`/matching/interests/${interestId}/approve`, {}, { Authorization: `Bearer ${token}` });
-      if (response.status === 200 || response.status === 201) { setSuccessMsg('Connection request approved.'); await readRequests(); return; }
+      if (response.status === 200 || response.status === 201) {
+        posthog.capture('swap_request_approved', { interest_id: interestId });
+        setSuccessMsg('Connection request approved.'); await readRequests(); return;
+      }
       setErrorMsg(response.data?.message ?? 'Unable to approve this request right now.');
     } catch {
       setErrorMsg('Unable to reach the server. Please try again.');
@@ -220,7 +225,10 @@ const Dashboard: React.FC = () => {
     try {
       const token = localStorage.getItem('JWT_TOKEN');
       const response = await Client.post(`/matching/interests/${interestId}/decline`, {}, { Authorization: `Bearer ${token}` });
-      if (response.status === 200 || response.status === 201) { setSuccessMsg('Connection request declined.'); await readRequests(); return; }
+      if (response.status === 200 || response.status === 201) {
+        posthog.capture('swap_request_declined', { interest_id: interestId });
+        setSuccessMsg('Connection request declined.'); await readRequests(); return;
+      }
       setErrorMsg(response.data?.message ?? 'Unable to decline this request right now.');
     } catch {
       setErrorMsg('Unable to reach the server. Please try again.');
@@ -256,6 +264,7 @@ const Dashboard: React.FC = () => {
         if (myVacancies.length > 0) {
           await Client.delete(`/vacancy/${myVacancies[0].id}`, undefined, { Authorization: `Bearer ${token}` });
         }
+        posthog.capture('vacancy_alert_removed');
         setVacancyListing(null);
         setSuccessMsg('Vacancy alert removed.');
         await readVacancies();
@@ -263,6 +272,13 @@ const Dashboard: React.FC = () => {
       }
       const response = await Client.post('/vacancy', vacancyPayload, { Authorization: `Bearer ${token}` });
       if (response.status === 200 || response.status === 201) {
+        posthog.capture('vacancy_alert_created', {
+          apartment_type: vacancyPayload.apartmentType,
+          state: vacancyPayload.state,
+          city: vacancyPayload.city,
+          has_area: !!vacancyPayload.area,
+          feature_count: vacancyPayload.features.length,
+        });
         setVacancyListing(null);
         setSuccessMsg('Vacancy alert created.');
         await readVacancies();

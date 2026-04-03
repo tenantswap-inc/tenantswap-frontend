@@ -1,4 +1,6 @@
 
+import posthog from "posthog-js"
+
 interface SSO {
   register?: boolean;
   login?: boolean;
@@ -14,6 +16,7 @@ export default function GoogleSignInButton({ register, login }: SSO) {
       return
     }
 
+    posthog.capture("google_sso_initiated", { intent: login ? "login" : "register" })
     window.location.href = `${baseUrl}/auth/sso/google`
   }
 

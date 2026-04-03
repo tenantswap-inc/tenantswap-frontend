@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { MatchCandidate, UserSwapRequest } from '@/shared/types'
 import { TrendingUp, ArrowRight, MapPin, BadgeCheck, Phone, UserRound, RotateCcw } from 'lucide-react'
+import posthog from 'posthog-js'
 
 interface Props {
   match: MatchCandidate
@@ -90,7 +91,15 @@ const MatchCard: React.FC<Props> = ({ match, relatedRequest, onRequestAgain, set
         ) : (
           <motion.button
             type="button"
-            onClick={() => setSelectedMatch(match)}
+            onClick={() => {
+              posthog.capture("match_explored", {
+                match_score: totalScore,
+                target_city: t.currentCity,
+                target_type: t.currentType,
+                target_rent: t.currentRent,
+              })
+              setSelectedMatch(match)
+            }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
             className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-emerald-700 shadow-sm hover:bg-emerald-50 hover:border-emerald-400 transition-all duration-200"
@@ -156,7 +165,13 @@ const MatchCard: React.FC<Props> = ({ match, relatedRequest, onRequestAgain, set
         >
           <motion.button
             type="button"
-            onClick={() => onRequestAgain(t.id)}
+            onClick={() => {
+              posthog.capture("swap_request_retried", {
+                target_listing_id: t.id,
+                match_score: totalScore,
+              })
+              onRequestAgain(t.id)
+            }}
             whileHover={{ y: -1 }}
             whileTap={{ scale: 0.98 }}
             className="inline-flex items-center gap-2 rounded-full bg-red-500 px-3 py-2 text-xs font-poppins-bold text-white transition-all hover:bg-red-600"
