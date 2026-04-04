@@ -3,6 +3,7 @@ import "./globals.css";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Providers } from "./provider";
 import PostHogProvider from "@/components/PostHogProvider";
+import { Analytics } from "@vercel/analytics/next";
 
 
 const url = process.env.API_URL as string;
@@ -49,6 +50,7 @@ export default function RootLayout({
             </GoogleOAuthProvider>
           </Providers>
         </PostHogProvider>
+        <Analytics />
       </body>
     </html>
   );

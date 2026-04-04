@@ -19,6 +19,7 @@
     "@microsoft/fetch-event-source": "^2.0.1",
     "@next/env": "^16.1.6",
     "@react-oauth/google": "^0.13.4",
+    "@vercel/analytics": "^2.0.1",
     "antd": "^6.3.0",
     "axios": "^1.13.6",
     "firebase": "^12.11.0",
