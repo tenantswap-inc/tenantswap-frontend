@@ -502,6 +502,16 @@ const Navbar: React.FC = () => {
             <div className="hidden sm:flex items-center gap-3">
               {isLoggedIn ? (
                 <>
+                  {/* Vacancies link */}
+                  <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
+                    <Link
+                      href="/vacancies"
+                      className="rounded-lg bg-white/10 border border-white/20 px-4 py-2 text-sm font-poppins-bold text-white transition-all duration-300 hover:bg-white/15"
+                    >
+                      Vacancies
+                    </Link>
+                  </motion.div>
+
                   {/* Notification bell */}
                   <div className="relative" ref={notificationPanelRef}>
                     <motion.button
@@ -589,6 +599,15 @@ const Navbar: React.FC = () => {
                 </>
               ) : (
                 <>
+                  <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
+                    <Link
+                      href="/vacancies"
+                      className="rounded-lg bg-white/10 border border-white/20 px-4 py-2 text-sm font-poppins-bold text-white transition-all duration-300 hover:bg-white/15"
+                    >
+                      Vacancies
+                    </Link>
+                  </motion.div>
+
                   <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
                     <Link
                       href="/login"
@@ -714,6 +733,13 @@ const Navbar: React.FC = () => {
 
                   {/* Drawer footer actions */}
                   <div className="border-t border-slate-100 p-4 space-y-2">
+                    <Link
+                      href="/vacancies"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-center gap-2 w-full rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-poppins-bold text-emerald-700 transition-all active:scale-[0.98]"
+                    >
+                      <Bell size={15} /> Browse Vacancies
+                    </Link>
                     {/* User avatar row */}
                     <Link
                       href="/settings"

@@ -10,17 +10,13 @@ import {
   VacancyAlert,
 } from '@/shared/types';
 import {
-  FilePlus, Edit2, Link2Off, ArrowRight,
-  ShieldCheck, FileText, Home, CalendarClock,
+  FilePlus, Edit2,
   BadgeCheck, Clock4,
   Bell,
   Plus,
-  Settings,
-  ChevronDown,
   Phone,
   UserCheck,
   AlertCircle,
-  CheckCircle2,
   FileUp,
   Search,
   Share2,
@@ -33,7 +29,6 @@ import UpdateEngine from '@/components/UpdateListing';
 import { Alert } from '@heroui/alert';
 import MatchModal from '@/components/MatchingModal';
 import MatchCard from '@/components/MatchCard';
-import { Button, ButtonGroup } from '@heroui/react';
 import RequestListModal from '@/components/RequestListModal';
 import VacancyAlertModal from '@/components/VacancyAlertModal';
 import {
@@ -421,7 +416,13 @@ const Dashboard: React.FC = () => {
     return () => clearTimeout(t);
   }, [errorMsg]);
 
-  if (!hydrated) return null;
+  if (!hydrated) return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-primary-green">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/assets/TenantSwap Logo Monochrome.svg" alt="TenantSwap" className="w-20 h-20 animate-pulse" />
+      <div className="w-10 h-10 rounded-full border-[3px] border-white/25 border-t-white animate-spin" />
+    </div>
+  );
 
   const activeListing = currentUser ? getActiveListing(currentUser.listings) : null;
 
@@ -467,33 +468,38 @@ const Dashboard: React.FC = () => {
   // ── Toast helper class ─────────────────────────────────────────────────────
   const toastClass = 'fixed top-4 right-4 left-4 sm:left-auto z-[9999] sm:w-full sm:max-w-md';
 
+  // Collect all approved contacts across all listings for the updates section
+  const allApprovedOutgoing = outgoingRequests.filter((r) => r.status === 'CONTACT_APPROVED');
+  const allApprovedIncoming = incomingListings.flatMap((il) =>
+    il.requests.filter((r) => r.status === 'CONTACT_APPROVED'),
+  );
+  const rejectedListings = currentUser.listings.filter(
+    (l) => l.listingType === 'SEEKING' && l.verificationStatus === 'REJECTED',
+  );
+  const pendingListings = currentUser.listings.filter(
+    (l) => l.listingType === 'SEEKING' && l.verificationStatus === 'PENDING',
+  );
+  const hasUpdates =
+    allApprovedOutgoing.length > 0 ||
+    allApprovedIncoming.length > 0 ||
+    rejectedListings.length > 0 ||
+    pendingListings.length > 0;
+
   return (
     <AuthLayout>
       {/* Success toast */}
       {successMsg && (
         <div className={toastClass}>
-          <Alert
-            color="success"
-            variant="solid"
-            isVisible
-            onClose={() => setSuccessMsg('')}
-            classNames={{ base: 'shadow-2xl rounded-2xl border border-emerald-500/20 bg-emerald-500 animate-in fade-in slide-in-from-top-2 duration-300' }}
-          >
+          <Alert color="success" variant="solid" isVisible onClose={() => setSuccessMsg('')}
+            classNames={{ base: 'shadow-2xl rounded-2xl border border-emerald-500/20 bg-emerald-500 animate-in fade-in slide-in-from-top-2 duration-300' }}>
             <span className="text-white font-poppins-bold">{successMsg}</span>
           </Alert>
         </div>
       )}
-
-      {/* Error toast */}
       {errorMsg && (
         <div className={toastClass}>
-          <Alert
-            color="danger"
-            variant="solid"
-            isVisible
-            onClose={() => setErrorMsg('')}
-            classNames={{ base: 'shadow-2xl rounded-2xl border border-red-500/20 bg-red-500 animate-in fade-in slide-in-from-top-2 duration-300' }}
-          >
+          <Alert color="danger" variant="solid" isVisible onClose={() => setErrorMsg('')}
+            classNames={{ base: 'shadow-2xl rounded-2xl border border-red-500/20 bg-red-500 animate-in fade-in slide-in-from-top-2 duration-300' }}>
             <span className="text-white font-poppins-bold">{errorMsg}</span>
           </Alert>
         </div>
@@ -528,477 +534,319 @@ const Dashboard: React.FC = () => {
         onSave={handleSaveVacancyAlert}
       />
 
-      <div className="max-w-6xl mx-auto py-8 sm:py-12 px-4">
+      {/* Hidden resubmit file input */}
+      <input
+        ref={resubmitFileRef}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file && resubmitListingId) void handleResubmitDocument(resubmitListingId, file);
+          e.target.value = '';
+        }}
+      />
 
-        {/* ── Page header ─────────────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 sm:mb-12">
-          {/* Title row */}
+      <div className="max-w-5xl mx-auto py-6 sm:py-10 px-4">
+
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <p className="text-sm text-slate-500 font-poppins-medium mb-1">
-              Welcome back,{' '}
-              <span className="text-slate-700 font-poppins-bold">{currentUser.fullName}</span>
-            </p>
-            <h2 className="text-2xl sm:text-4xl font-poppins-bold text-slate-900 tracking-tight">
-              Your Swap Dashboard
-            </h2>
+            <p className="text-xs text-slate-400 font-poppins-medium mb-0.5">Welcome back</p>
+            <h1 className="text-xl font-poppins-bold text-slate-900">{currentUser.fullName}</h1>
           </div>
-
-          {/* Action buttons — scrollable on xs, normal on sm+ */}
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-shrink-0">
-            <div className="inline-flex min-w-max sm:min-w-0">
-              <ButtonGroup variant="bordered" radius="lg">
-                <Button
-                  onPress={() => {
-                    setRequestAttentionActive(false);
-                    setRequestAttentionPulseActive(false);
-                    if (requestAttentionTimeoutRef.current) {
-                      clearTimeout(requestAttentionTimeoutRef.current);
-                      requestAttentionTimeoutRef.current = null;
-                    }
-                    setRequestTab(pendingIncomingRequestCount > 0 ? 'incoming' : 'outgoing');
-                    setOpenRequestList(true);
-                  }}
-                  className={`relative overflow-visible font-poppins-bold text-sm text-slate-600 border-slate-200 transition-all duration-500 hover:bg-slate-50 data-[hover=true]:bg-slate-50 ${requestAttentionActive ? 'border-emerald-300 bg-emerald-50/80 text-emerald-700 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]' : ''} ${requestAttentionPulseActive ? 'shadow-[0_0_0_8px_rgba(16,185,129,0.18)]' : ''}`}
-                  startContent={<Bell size={15} className={requestAttentionActive ? 'text-emerald-600' : 'text-slate-400'} />}
-                  endContent={
-                    requestCount > 0 && (
-                      <span className="relative flex min-w-[18px] items-center justify-center">
-                        {requestAttentionPulseActive && (
-                          <>
-                            <span className="absolute inset-0 rounded-full bg-emerald-400/30 animate-ping" />
-                            <span className="absolute -inset-1 rounded-full border border-emerald-300/80 animate-ping [animation-delay:220ms]" />
-                          </>
-                        )}
-                        <span className={`relative rounded-full bg-emerald-500 px-1.5 py-0.5 text-center text-[10px] font-poppins-bold text-white transition-transform duration-500 ${requestAttentionPulseActive ? 'scale-110' : ''}`}>
-                          {requestCount}
-                        </span>
-                      </span>
-                    )
-                  }
-                >
-                  Requests
-                </Button>
-                <Button
-                  onPress={handleOpenListings}
-                  className="font-poppins-bold text-sm text-slate-600 border-slate-200 hover:bg-slate-50 data-[hover=true]:bg-slate-50"
-                  startContent={<Home size={15} className="text-slate-400" />}
-                  endContent={
-                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-poppins-bold text-slate-500">
-                      {listingCount}
-                    </span>
-                  }
-                >
-                  Listings
-                </Button>
-                <Link href="/settings">
-                  <Button
-                    className="font-poppins-bold text-sm text-slate-600 border-slate-200 hover:bg-slate-50 data-[hover=true]:bg-slate-50"
-                    startContent={<Settings size={15} className="text-slate-400" />}
-                  >
-                    Settings
-                  </Button>
-                </Link>
-              </ButtonGroup>
-            </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setRequestAttentionActive(false);
+                setRequestAttentionPulseActive(false);
+                if (requestAttentionTimeoutRef.current) {
+                  clearTimeout(requestAttentionTimeoutRef.current);
+                  requestAttentionTimeoutRef.current = null;
+                }
+                setRequestTab(pendingIncomingRequestCount > 0 ? 'incoming' : 'outgoing');
+                setOpenRequestList(true);
+              }}
+              className={`relative flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-poppins-bold transition-all duration-300 ${
+                requestAttentionActive
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-700 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]'
+                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Bell size={15} className={requestAttentionActive ? 'text-emerald-600' : 'text-slate-400'} />
+              <span>Requests</span>
+              {requestCount > 0 && (
+                <span className="relative flex min-w-[18px] items-center justify-center">
+                  {requestAttentionPulseActive && (
+                    <span className="absolute inset-0 rounded-full bg-emerald-400/30 animate-ping" />
+                  )}
+                  <span className={`relative rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-poppins-bold text-white transition-transform duration-300 ${requestAttentionPulseActive ? 'scale-110' : ''}`}>
+                    {requestCount}
+                  </span>
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* ── Listings header ──────────────────────────────────────────────── */}
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" id="listings-section">
-          <div>
-            <h3 className="text-xl font-poppins-bold text-slate-800">Your Listings</h3>
-            <p className="mt-1 text-sm font-poppins-regular text-slate-500">
-              {listingCount}/{maxFreeListings} free listings used. Add up to two listings on the free plan.
-            </p>
+        {/* ── Updates strip ───────────────────────────────────────────────── */}
+        {hasUpdates && (
+          <div className="mb-8 space-y-2">
+            {pendingListings.map((l) => (
+              <div key={l.id} className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <Clock4 size={14} className="text-amber-500 shrink-0" />
+                <p className="text-sm font-poppins-medium text-amber-800 flex-1">
+                  <span className="font-poppins-bold">Verification pending</span> — your document is under review.
+                </p>
+              </div>
+            ))}
+            {rejectedListings.map((l) => (
+              <div key={l.id} className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                <AlertCircle size={14} className="text-red-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-poppins-bold text-red-800">Verification rejected</p>
+                  {l.verificationNote && (
+                    <p className="text-xs font-poppins-regular text-red-600 mt-0.5">{l.verificationNote}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={resubmitting && resubmitListingId === l.id}
+                  onClick={() => { setResubmitListingId(l.id); resubmitFileRef.current?.click(); }}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-white px-3 py-1.5 text-xs font-poppins-bold text-red-600 transition-all hover:bg-red-50 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FileUp size={11} />
+                  {resubmitting && resubmitListingId === l.id ? 'Uploading…' : 'Re-submit'}
+                </button>
+              </div>
+            ))}
+            {allApprovedOutgoing.map((req) => (
+              <div key={req.interestId} className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+                <UserCheck size={14} className="text-blue-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-blue-500 font-poppins-bold uppercase tracking-widest">Contact Approved</p>
+                  <p className="text-sm font-poppins-bold text-slate-800">{req.owner.fullName}</p>
+                  {req.owner.phone && <p className="text-xs text-slate-500 font-poppins-regular">{req.owner.phone}</p>}
+                </div>
+                {req.owner.phone && (
+                  <a href={`tel:${req.owner.phone}`}
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-blue-600 transition-all hover:bg-blue-50 whitespace-nowrap">
+                    <Phone size={11} /> Call
+                  </a>
+                )}
+              </div>
+            ))}
+            {allApprovedIncoming.map((req) => (
+              <div key={req.interestId} className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+                <UserCheck size={14} className="text-blue-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-blue-500 font-poppins-bold uppercase tracking-widest">You approved — their contact</p>
+                  <p className="text-sm font-poppins-bold text-slate-800">{req.requester.fullName}</p>
+                  {req.requester.phone && <p className="text-xs text-slate-500 font-poppins-regular">{req.requester.phone}</p>}
+                </div>
+                {req.requester.phone && (
+                  <a href={`tel:${req.requester.phone}`}
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-blue-600 transition-all hover:bg-blue-50 whitespace-nowrap">
+                    <Phone size={11} /> Call
+                  </a>
+                )}
+              </div>
+            ))}
           </div>
+        )}
+
+        {/* ── Listings header ──────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between mb-5" id="listings-section">
+          <p className="text-xs font-poppins-bold text-slate-400 uppercase tracking-widest">
+            Your Listings · {listingCount}/{maxFreeListings}
+          </p>
           <button
             type="button"
             onClick={handleAddListing}
             disabled={!canCreateListing}
-            className="self-start sm:self-auto inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-poppins-bold text-emerald-700 transition-all hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
+            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-emerald-700 transition-all hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
           >
-            <Plus size={15} /> Add Listing
+            <Plus size={13} /> Add Listing
           </button>
         </div>
 
-        {!canCreateListing && (
-          <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            <span className="font-poppins-bold">Free plan includes up to 2 listings.</span>{' '}
-            Upgrade to Premium for more.
-          </div>
-        )}
-
-        {/* ── Listings list ────────────────────────────────────────────────── */}
-        <div className="space-y-12">
+        {/* ── Listings ────────────────────────────────────────────────────── */}
+        <div className="space-y-10">
           {currentUser.listings.map((listing, listingIndex) => (
             <div key={listing.id}>
 
-              {/* Listing header */}
-              <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-start sm:justify-between">
-                {/* Title + status */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-base sm:text-lg font-poppins-bold text-slate-700">
-                    {listing.listingType === 'SEEKING'
-                      ? <>Seeking: {listing.desiredType}</>
-                      : <>{listing.currentType} → {listing.desiredType}</>}
-                  </h3>
-                  <span className={`text-xs font-poppins-bold px-2 py-1 rounded-full ${STATUS_COLORS[listing.status]}`}>
-                    {listing.status}
-                  </span>
-                  {listing.listingType === 'SEEKING' && (
-                    <span className="text-xs font-poppins-bold px-2 py-1 rounded-full bg-purple-100 text-purple-700">
-                      Seeker
-                    </span>
-                  )}
-                  {listing.expiresAt && (
-                    <span className="text-xs text-amber-500 font-poppins-medium flex items-center gap-1">
-                      <Clock4 size={11} /> Expires {formatDate(listing.expiresAt)}
-                    </span>
-                  )}
-                </div>
-
-                {/* Action buttons — wrap on mobile */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {listing.listingType !== 'SEEKING' && (
-                    <button
-                      onClick={() => setVacancyListing(listing)}
-                      className="flex items-center gap-1.5 text-xs border border-emerald-200 px-3 py-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 font-poppins-medium transition-all whitespace-nowrap"
-                    >
-                      <Bell size={13} />
-                      Vacancy Alert
-                    </button>
-                  )}
+              {/* Compact listing card */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h3 className="text-sm font-poppins-bold text-slate-800">
+                        {listing.listingType === 'SEEKING'
+                          ? `Seeking ${listing.desiredType}`
+                          : `${listing.currentType} → ${listing.desiredType}`}
+                      </h3>
+                      <span className={`text-xs font-poppins-bold px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[listing.status]}`}>
+                        {listing.status}
+                      </span>
+                      {listing.listingType === 'SEEKING' && (
+                        <span className="text-xs font-poppins-bold px-2 py-0.5 rounded-full shrink-0 bg-purple-100 text-purple-700">
+                          Seeker
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 font-poppins-regular">
+                      {listing.desiredCity} · ₦{listing.maxBudget.toLocaleString()} / yr · {listing.timeline}
+                    </p>
+                    {listing.listingType !== 'SEEKING' && (
+                      <p className={`text-xs font-poppins-medium mt-1 flex items-center gap-1 ${listing.currentAvailable ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        {listing.currentAvailable
+                          ? <><BadgeCheck size={11} className="shrink-0" /> Available {formatDate(listing.currentAvailableOn)}</>
+                          : 'Not yet available'}
+                      </p>
+                    )}
+                    {listing.listingType === 'SEEKING' && listing.seekerCategory && (
+                      <p className="text-xs text-purple-500 font-poppins-medium mt-1">
+                        {listing.seekerCategory === 'OTHER' ? 'Future Resident' : 'NYSC Corps Member'}
+                      </p>
+                    )}
+                    {listing.expiresAt && (
+                      <p className="text-xs text-amber-500 font-poppins-medium mt-1 flex items-center gap-1">
+                        <Clock4 size={10} className="shrink-0" /> Expires {formatDate(listing.expiresAt)}
+                      </p>
+                    )}
+                  </div>
                   <button
+                    type="button"
                     onClick={() => setUpdateListing(listing)}
-                    className="flex items-center gap-1.5 text-xs border border-slate-200 px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-50 font-poppins-medium transition-all whitespace-nowrap"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-poppins-bold text-slate-500 hover:bg-slate-50 transition-all shrink-0"
                   >
-                    <Edit2 size={13} /> Edit
+                    <Edit2 size={12} /> Edit
                   </button>
                 </div>
               </div>
 
-              {/* Verification banners */}
-              {listing.listingType === 'SEEKING' && listing.verificationStatus === 'PENDING' && (
-                <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 flex items-start gap-3">
-                  <CheckCircle2 size={18} className="text-amber-500 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-sm font-poppins-bold text-amber-800">Verification Under Review</p>
-                    <p className="text-xs font-poppins-regular text-amber-700 mt-0.5">
-                      Your document has been submitted and is being reviewed by our team. We will notify you once approved.
-                    </p>
-                  </div>
-                </div>
-              )}
-              {listing.listingType === 'SEEKING' && listing.verificationStatus === 'REJECTED' && (
-                <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-4">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle size={18} className="text-red-500 mt-0.5 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-poppins-bold text-red-800">Verification Rejected</p>
-                      {listing.verificationNote && (
-                        <p className="text-xs font-poppins-regular text-red-700 mt-0.5">{listing.verificationNote}</p>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      disabled={resubmitting && resubmitListingId === listing.id}
-                      onClick={() => {
-                        setResubmitListingId(listing.id);
-                        resubmitFileRef.current?.click();
-                      }}
-                      className="self-start inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-white px-3 py-1.5 text-xs font-poppins-bold text-red-600 transition-all hover:bg-red-50 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <FileUp size={11} />
-                      {resubmitting && resubmitListingId === listing.id ? 'Uploading…' : 'Re-submit'}
-                    </button>
-                  </div>
-                  <input
-                    ref={resubmitListingId === listing.id ? resubmitFileRef : undefined}
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) void handleResubmitDocument(listing.id, file);
-                      e.target.value = '';
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* Listing summary card */}
-              <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 mb-6">
-                {listing.listingType !== 'SEEKING' && (
-                  <>
-                    <div className="flex-1">
-                      <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">Leaving</p>
-                      <p className="font-poppins-bold text-slate-800 text-sm">{listing.currentType} · {listing.currentCity}</p>
-                      <p className="text-xs text-slate-500 font-poppins-regular mt-0.5">₦{listing.currentRent.toLocaleString()} / yr</p>
-                      {listing.currentAvailable ? (
-                        <p className="text-xs text-emerald-600 font-poppins-medium mt-0.5 flex items-center gap-1">
-                          <BadgeCheck size={11} className="shrink-0" /> Available {formatDate(listing.currentAvailableOn)}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-slate-400 font-poppins-regular mt-0.5">Not yet available</p>
-                      )}
-                    </div>
-
-                    {/* Arrow: horizontal on sm+, hidden on xs (vertical flow is implicit) */}
-                    <div className="hidden sm:flex items-center text-emerald-400">
-                      <ArrowRight size={18} />
-                    </div>
-                    <div className="flex sm:hidden items-center text-emerald-300">
-                      <ChevronDown size={16} />
-                    </div>
-                  </>
-                )}
-
-                <div className="flex-1">
-                  <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">
-                    {listing.listingType === 'SEEKING' ? 'Looking For' : 'Looking For'}
-                  </p>
-                  <p className="font-poppins-bold text-slate-800 text-sm">{listing.desiredType} · {listing.desiredCity}</p>
-                  <p className="text-xs text-slate-500 font-poppins-regular mt-0.5">Budget: ₦{listing.maxBudget.toLocaleString()} / yr</p>
-                  <p className="text-xs text-slate-500 font-poppins-regular mt-0.5 flex items-center gap-1">
-                    <CalendarClock size={11} className="shrink-0" /> {listing.timeline}
-                  </p>
-                  {listing.listingType === 'SEEKING' && listing.seekerCategory && (
-                    <p className="text-xs text-purple-600 font-poppins-medium mt-0.5 capitalize">
-                      {listing.seekerCategory.replace('_', ' ').toLowerCase()}
-                    </p>
-                  )}
-                </div>
-
-                {listing.features.length > 0 && (
-                  <div className="flex-1">
-                    <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-2">Features</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {listing.features.map((f) => (
-                        <span
-                          key={f}
-                          className="text-[10px] bg-white border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded-md font-poppins-medium"
-                        >
-                          {f}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Vacancy alert cards */}
-              {listingIndex === 0 && myVacancies.length > 0 && (
-                <div className="mb-6 space-y-3">
-                  {myVacancies.map((v) => (
-                    <div key={v.id} className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="text-[10px] text-amber-600 font-poppins-bold uppercase tracking-widest mb-1">Vacancy Alert</p>
-                          <p className="text-sm font-poppins-bold text-slate-800">
-                            {v.apartmentType} in{' '}
-                            {[v.area, v.city, v.state].filter(Boolean).join(', ')}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 self-start">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const url = `${window.location.origin}/vacancy/${v.id}`;
-                              if (navigator.share) {
-                                try { await navigator.share({ title: 'Vacancy Alert — TenantSwap', url }); } catch { /* cancelled */ }
-                              } else {
-                                await navigator.clipboard.writeText(url);
-                                setCopiedVacancyId(v.id);
-                                setTimeout(() => setCopiedVacancyId(null), 2000);
-                              }
-                              void Client.post(`/vacancy/${v.id}/share`, {}, { Authorization: `Bearer ${localStorage.getItem('JWT_TOKEN')}` }).catch(() => undefined);
-                            }}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-amber-700 transition-all hover:bg-amber-50 whitespace-nowrap"
-                          >
-                            {copiedVacancyId === v.id ? <><Copy size={12} /> Copied!</> : <><Share2 size={12} /> Share</>}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const token = localStorage.getItem('JWT_TOKEN');
-                              await Client.delete(`/vacancy/${v.id}`, undefined, { Authorization: `Bearer ${token}` });
-                              await readVacancies();
-                            }}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-red-600 transition-all hover:bg-red-50 whitespace-nowrap"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                      {v.features.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {v.features.map((feature) => (
-                            <span key={feature} className="text-[10px] bg-white border border-amber-200 text-amber-700 px-2 py-0.5 rounded-md font-poppins-medium">
-                              {feature}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Approved contact cards */}
-              {(() => {
-                const approvedOutgoing = outgoingRequests.filter(
-                  (r) => r.requesterListingId === listing.id && r.status === 'CONTACT_APPROVED',
-                );
-                const approvedIncoming =
-                  incomingListings
-                    .find((il) => il.listingId === listing.id)
-                    ?.requests.filter((r) => r.status === 'CONTACT_APPROVED') ?? [];
-
-                if (approvedOutgoing.length === 0 && approvedIncoming.length === 0) return null;
-
-                return (
-                  <div className="mb-6 space-y-3">
-                    {approvedOutgoing.map((req) => (
-                      <div key={req.interestId} className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center shrink-0">
-                              <UserCheck size={16} className="text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-blue-600 font-poppins-bold uppercase tracking-widest mb-0.5">Contact Approved</p>
-                              <p className="text-sm font-poppins-bold text-slate-800">{req.owner.fullName}</p>
-                              {req.owner.phone && (
-                                <p className="text-xs font-poppins-medium text-slate-500 mt-0.5">{req.owner.phone}</p>
+              {/* Vacancy alert prompt — SWAP listings only */}
+              {listing.listingType !== 'SEEKING' && (
+                <div className="mb-5">
+                  {myVacancies.length > 0 ? (
+                    <div className="space-y-3">
+                      {myVacancies.map((v) => (
+                        <div key={v.id} className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">Vacancy Alert · Active</p>
+                              <p className="text-sm font-poppins-bold text-slate-800">
+                                {v.apartmentType} in {[v.area, v.city, v.state].filter(Boolean).join(', ')}
+                              </p>
+                              {v.features.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  {v.features.map((f) => (
+                                    <span key={f} className="text-[10px] bg-white border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded-md font-poppins-medium">{f}</span>
+                                  ))}
+                                </div>
                               )}
                             </div>
-                          </div>
-                          {req.owner.phone && (
-                            <a
-                              href={`tel:${req.owner.phone}`}
-                              className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-blue-600 transition-all hover:bg-blue-50 whitespace-nowrap"
-                            >
-                              <Phone size={11} /> Call
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {approvedIncoming.map((req) => (
-                      <div key={req.interestId} className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-4">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center shrink-0">
-                              <UserCheck size={16} className="text-blue-600" />
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const url = `${window.location.origin}/vacancy/${v.id}`;
+                                  if (navigator.share) {
+                                    try { await navigator.share({ title: 'Vacancy Alert — TenantSwap', url }); } catch { /* cancelled */ }
+                                  } else {
+                                    await navigator.clipboard.writeText(url);
+                                    setCopiedVacancyId(v.id);
+                                    setTimeout(() => setCopiedVacancyId(null), 2000);
+                                  }
+                                  void Client.post(`/vacancy/${v.id}/share`, {}, { Authorization: `Bearer ${localStorage.getItem('JWT_TOKEN')}` }).catch(() => undefined);
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-emerald-700 transition-all hover:bg-emerald-100 whitespace-nowrap"
+                              >
+                                {copiedVacancyId === v.id ? <><Copy size={11} /> Copied!</> : <><Share2 size={11} /> Share</>}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const token = localStorage.getItem('JWT_TOKEN');
+                                  await Client.delete(`/vacancy/${v.id}`, undefined, { Authorization: `Bearer ${token}` });
+                                  await readVacancies();
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-red-500 transition-all hover:bg-red-50 whitespace-nowrap"
+                              >
+                                Remove
+                              </button>
                             </div>
-                            <div>
-                              <p className="text-[10px] text-blue-600 font-poppins-bold uppercase tracking-widest mb-0.5">You Approved — Their Contact</p>
-                              <p className="text-sm font-poppins-bold text-slate-800">{req.requester.fullName}</p>
-                              {req.requester.phone && (
-                                <p className="text-xs font-poppins-medium text-slate-500 mt-0.5">{req.requester.phone}</p>
-                              )}
-                            </div>
                           </div>
-                          {req.requester.phone && (
-                            <a
-                              href={`tel:${req.requester.phone}`}
-                              className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-blue-600 transition-all hover:bg-blue-50 whitespace-nowrap"
-                            >
-                              <Phone size={11} /> Call
-                            </a>
-                          )}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-
-              {/* Matches — only for SWAP listings */}
-              {listing.listingType === 'SEEKING' ? (
-                <div className="bg-white p-8 sm:p-10 rounded-2xl border border-dashed border-purple-100 text-center">
-                  <div className="text-purple-200 flex justify-center mb-3">
-                    <Search size={36} />
-                  </div>
-                  <p className="text-slate-400 font-poppins-bold text-sm">Seeker Listing</p>
-                  <p className="text-slate-300 font-poppins-regular text-xs mt-1">
-                    {listing.verificationStatus === 'PENDING'
-                      ? 'Your application is under review. Matches will be surfaced once approved.'
-                      : listing.verificationStatus === 'APPROVED'
-                        ? 'Your listing is active. We will notify you when matches are found.'
-                        : 'Complete verification to activate your listing.'}
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <h4 className="text-sm font-poppins-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                    Potential Matches
-                    {listing.matchCount > 0 && (
-                      <span className="bg-emerald-100 text-emerald-700 text-xs px-2 py-0.5 rounded-full font-poppins-medium normal-case tracking-normal">
-                        {listing.matchCount}
-                      </span>
-                    )}
-                  </h4>
-
-                  {listing.matches.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {listing.matches.map((match) => (
-                        <MatchCard
-                          key={match.id}
-                          match={match}
-                          relatedRequest={outgoingRequestByListingId.get(match.targetListing.id)}
-                          onRequestAgain={handleConnect}
-                          setSelectedMatch={setSelectedMatch}
-                        />
                       ))}
                     </div>
                   ) : (
-                    <div className="bg-white p-8 sm:p-10 rounded-2xl border border-dashed border-slate-200 text-center">
-                      <div className="text-slate-200 flex justify-center mb-3">
-                        <Link2Off size={36} />
+                    <button
+                      type="button"
+                      onClick={() => setVacancyListing(listing)}
+                      className="w-full flex items-center justify-between gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-3 text-left transition-all hover:border-emerald-200 hover:bg-emerald-50/40 group"
+                    >
+                      <div>
+                        <p className="text-sm font-poppins-bold text-slate-600 group-hover:text-emerald-700">Know of a vacant apartment nearby?</p>
+                        <p className="text-xs font-poppins-regular text-slate-400 mt-0.5">Share a vacancy alert — help others in your area find a home.</p>
                       </div>
-                      <p className="text-slate-400 font-poppins-bold text-sm">No matches yet</p>
-                      <p className="text-slate-300 font-poppins-regular text-xs mt-1">
-                        We will notify you when someone matches this listing.
-                      </p>
-                    </div>
+                      <Bell size={16} className="text-slate-300 group-hover:text-emerald-500 shrink-0 transition-colors" />
+                    </button>
                   )}
+                </div>
+              )}
+
+              {/* Matches or seeker placeholder */}
+              {listing.listingType === 'SEEKING' ? (
+                <div className="rounded-2xl border border-dashed border-purple-100 bg-purple-50/30 p-8 text-center">
+                  <Search size={28} className="text-purple-200 mx-auto mb-2" />
+                  <p className="text-sm font-poppins-bold text-slate-400">
+                    {listing.verificationStatus === 'PENDING'
+                      ? 'Under review — matches will appear once approved.'
+                      : listing.verificationStatus === 'APPROVED'
+                        ? 'Active — we\'ll notify you when matches are found.'
+                        : 'Complete verification to activate your listing.'}
+                  </p>
+                </div>
+              ) : listing.matches.length > 0 ? (
+                <>
+                  <p className="text-xs font-poppins-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    Potential Matches
+                    <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-poppins-medium normal-case tracking-normal">
+                      {listing.matchCount}
+                    </span>
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {listing.matches.map((match) => (
+                      <MatchCard
+                        key={match.id}
+                        match={match}
+                        relatedRequest={outgoingRequestByListingId.get(match.targetListing.id)}
+                        onRequestAgain={handleConnect}
+                        setSelectedMatch={setSelectedMatch}
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
+                  <div className="relative w-10 h-10 mx-auto mb-3">
+                    <Search size={28} className="text-slate-300 absolute inset-0 m-auto" />
+                    <span className="absolute inset-0 rounded-full border-2 border-slate-200 border-t-emerald-400 animate-spin" />
+                  </div>
+                  <p className="text-sm font-poppins-bold text-slate-400">Still searching…</p>
+                  <p className="text-xs text-slate-300 font-poppins-regular mt-1">We'll notify you the moment someone matches.</p>
                 </div>
               )}
 
               {listingIndex < currentUser.listings.length - 1 && (
-                <div className="border-b border-slate-100 mt-12" />
+                <div className="border-b border-slate-100 mt-10" />
               )}
             </div>
           ))}
         </div>
 
-        {/* ── Swap Protocol banner ─────────────────────────────────────────── */}
-        <div className="mt-16 sm:mt-20 bg-slate-900 text-white p-8 sm:p-12 rounded-[2rem] sm:rounded-[2.5rem] relative overflow-hidden">
-          <div className="relative z-10 max-w-2xl">
-            <h3 className="text-2xl sm:text-3xl font-poppins-bold mb-4">The Swap Protocol</h3>
-            <p className="text-slate-400 font-poppins-regular leading-relaxed mb-6 sm:mb-8 text-sm sm:text-base">
-              TenantSwap only facilitates the connection. Once you connect with others in your home match,
-              you should collectively contact your respective landlords or property managers to handle the paperwork.
-            </p>
-            <div className="flex gap-3 sm:gap-4">
-              <div className="bg-emerald-600/20 text-emerald-400 p-3 sm:p-4 rounded-2xl border border-emerald-600/30">
-                <ShieldCheck size={20} className="mb-2 sm:hidden" />
-                <ShieldCheck size={24} className="hidden sm:block mb-2" />
-                <p className="text-[10px] sm:text-xs font-poppins-bold uppercase">Safe Swapping</p>
-              </div>
-              <div className="bg-slate-800 text-slate-400 p-3 sm:p-4 rounded-2xl border border-slate-700">
-                <FileText size={20} className="mb-2 sm:hidden" />
-                <FileText size={24} className="hidden sm:block mb-2" />
-                <p className="text-[10px] sm:text-xs font-poppins-bold uppercase">Legal Advice</p>
-              </div>
-            </div>
-          </div>
-          <div className="absolute -bottom-20 -right-20 opacity-10 pointer-events-none">
-            <Home size={220} className="sm:hidden" />
-            <Home size={320} className="hidden sm:block" />
-          </div>
-        </div>
 
       </div>
     </AuthLayout>

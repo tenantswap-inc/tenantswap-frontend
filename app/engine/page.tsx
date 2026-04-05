@@ -6,7 +6,7 @@ import { PROPERTY_TYPES, TIMELINES, FEATURES } from '@/constants';
 import GuestLayout from '@/app/GuestLayout';
 import {
   CheckSquare, Square, X, ChevronRight, ChevronLeft, Loader2, Megaphone,
-  Upload, Home, Briefcase, GraduationCap, Users, HelpCircle, ShieldCheck, CheckCircle2,
+  Upload, Home, ShieldCheck, CheckCircle2,
 } from 'lucide-react';
 import { Alert } from '@heroui/alert';
 import { z } from 'zod';
@@ -28,9 +28,7 @@ import {
 type PropertyType = typeof PROPERTY_TYPES[number]
 type Timeline = typeof TIMELINES[number]
 type ListingMode = 'undecided' | 'SWAP' | 'SEEKING'
-type SeekerCategory = 'NYSC' | 'WORK' | 'SCHOOL' | 'FAMILY_HOME' | 'OTHER'
-
-const DOCUMENT_CATEGORIES: SeekerCategory[] = ['NYSC', 'WORK', 'SCHOOL']
+type SeekerCategory = 'NYSC' | 'OTHER'
 
 // ─── schemas ──────────────────────────────────────────────────────────────────
 
@@ -120,16 +118,13 @@ const vacancySchema = z.object({
 
 type Step1Values = z.infer<typeof step1Schema>
 type Step2Values = z.infer<typeof step2Schema>
-type AllErrors = Partial<Record<keyof Step1Values | keyof Step2Values | VacancyKeys | 'verificationFile' | 'nin', string>>
+type AllErrors = Partial<Record<keyof Step1Values | keyof Step2Values | VacancyKeys | 'verificationFile', string>>
 
 // ─── seeker category config ───────────────────────────────────────────────────
 
 const SEEKER_CATEGORIES: { value: SeekerCategory; label: string; description: string; icon: React.ReactNode }[] = [
   { value: 'NYSC', label: 'NYSC Corps Member', description: 'Being posted to a new state for national service', icon: <ShieldCheck size={22} /> },
-  { value: 'WORK', label: 'Work Relocation', description: 'Moving to a new city for a job or transfer', icon: <Briefcase size={22} /> },
-  { value: 'SCHOOL', label: 'School Admission', description: 'Moving for university or higher education', icon: <GraduationCap size={22} /> },
-  { value: 'FAMILY_HOME', label: 'Living with Family', description: 'Currently staying with parents or guardian', icon: <Users size={22} /> },
-  { value: 'OTHER', label: 'Other Reason', description: 'Another reason for seeking housing', icon: <HelpCircle size={22} /> },
+  { value: 'OTHER', label: 'Future Resident', description: 'Planning to move to a new area', icon: <Home size={22} /> },
 ]
 
 // ─── component ────────────────────────────────────────────────────────────────
@@ -144,7 +139,7 @@ const Engine: React.FC = () => {
   const [listingMode, setListingMode] = useState<ListingMode>('undecided')
   const [seekerCategory, setSeekerCategory] = useState<SeekerCategory | null>(null)
   const [verificationFile, setVerificationFile] = useState<File | null>(null)
-  const [nin, setNin] = useState('')
+
   const [underReview, setUnderReview] = useState(false)
 
   // ── Step 1 fields ──────────────────────────────────────────────────────────
@@ -187,12 +182,9 @@ const Engine: React.FC = () => {
   const currentAreas = getSwapAreasForCity(currentState, currentCity)
   const vacancyAreas = getSwapAreasForCity(vacancyState, vacancyCity)
 
-  const isDocumentCategory = seekerCategory !== null && DOCUMENT_CATEGORIES.includes(seekerCategory)
   const maxStep = listingMode === 'SEEKING' ? 2 : 3
 
-  const seekerSteps = isDocumentCategory
-    ? ['Looking For', 'Upload Document', 'Confirm']
-    : ['Looking For', 'Verify Identity', 'Confirm']
+  const seekerSteps = ['Looking For', 'Upload Document', 'Confirm']
 
   useEffect(() => {
     if (!alertMsg) return
@@ -258,41 +250,15 @@ const Engine: React.FC = () => {
       setAlertMsg('')
       setStep(3)
     } else if (listingMode === 'SEEKING' && step === 1) {
-      if (isDocumentCategory) {
-        // Document upload step — just check file is selected
-        if (!verificationFile) {
-          setErrors({ verificationFile: 'Please upload a supporting document' })
-          setAlertMsg('Please upload your supporting document before continuing.')
-          return
-        }
-        setErrors({})
-        setAlertMsg('')
-        setStep(2)
-      } else {
-        // NIN step — validate format and submit
-        const ninTrimmed = nin.trim()
-        if (!/^\d{11}$/.test(ninTrimmed)) {
-          setErrors({ nin: 'NIN must be exactly 11 digits' })
-          setAlertMsg('Please enter a valid 11-digit NIN.')
-          return
-        }
-        setLoading(true)
-        try {
-          const res = await Client.post('/users/me/nin', { nin: ninTrimmed }, { Authorization: `Bearer ${token}` })
-          if (res.status === 401) { unsetToken(); router.push('/login'); return }
-          if (res.status !== 200 && res.status !== 201) {
-            setAlertMsg('Could not submit NIN. Please try again.')
-            return
-          }
-          setErrors({})
-          setAlertMsg('')
-          setStep(2)
-        } catch {
-          setAlertMsg('Unable to reach the server. Please check your connection.')
-        } finally {
-          setLoading(false)
-        }
+      // Document upload step — NYSC requires file, OTHER is optional
+      if (seekerCategory === 'NYSC' && !verificationFile) {
+        setErrors({ verificationFile: 'Please upload a supporting document' })
+        setAlertMsg('Please upload your supporting document before continuing.')
+        return
       }
+      setErrors({})
+      setAlertMsg('')
+      setStep(2)
     }
   }
 
@@ -369,7 +335,7 @@ const Engine: React.FC = () => {
       })
 
       // Upload verification document if required
-      if (isSeeking && isDocumentCategory && verificationFile && listingId) {
+      if (isSeeking && verificationFile && listingId) {
         const formData = new FormData()
         formData.append('document', verificationFile)
         await Client.postFormData(`/listings/${listingId}/verification-document`, formData, {
@@ -935,7 +901,7 @@ const Engine: React.FC = () => {
               </motion.div>
             )}
 
-            {/* ── Step 1 SEEKING: Document Upload or NIN ── */}
+            {/* ── Step 1 SEEKING: Document Upload ── */}
             {listingMode === 'SEEKING' && step === 1 && (
               <motion.div
                 key="step-1-seeking"
@@ -945,15 +911,12 @@ const Engine: React.FC = () => {
                 exit={{ opacity: 0, x: -28, y: -6 }}
                 transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
               >
-                {isDocumentCategory ? (
                   <>
                     <div className="flex justify-between items-center">
                       <div>
                         <h3 className="text-2xl font-poppins-bold text-slate-800 mb-1">Upload Supporting Document</h3>
                         <p className="text-sm text-slate-400 font-poppins-regular">
-                          {seekerCategory === 'NYSC' && 'Upload your NYSC call-up letter or state deployment letter.'}
-                          {seekerCategory === 'WORK' && 'Upload your employment offer letter or transfer letter.'}
-                          {seekerCategory === 'SCHOOL' && 'Upload your school admission or acceptance letter.'}
+                          {seekerCategory === 'NYSC' ? 'Upload your NYSC call-up letter or state deployment letter.' : 'Upload any supporting document (optional).'}
                         </p>
                       </div>
                       <div className="rounded-full border p-2 shadow-xl shadow-black/20">
@@ -996,41 +959,6 @@ const Engine: React.FC = () => {
                       Your document is only used to verify your housing need. It is reviewed by our team and never shared publicly.
                     </div>
                   </>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="text-2xl font-poppins-bold text-slate-800 mb-1">Verify Your Identity</h3>
-                        <p className="text-sm text-slate-400 font-poppins-regular">Enter your National Identification Number to confirm your identity.</p>
-                      </div>
-                      <div className="rounded-full border p-2 shadow-xl shadow-black/20">
-                        <ShieldCheck className="text-black" size={30} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-poppins-medium text-slate-600 mb-2">National Identification Number (NIN)</label>
-                      <input
-                        type="text"
-                        value={nin}
-                        onChange={e => {
-                          const val = e.target.value.replace(/\D/g, '').slice(0, 11)
-                          setNin(val)
-                          if (errors.nin) setErrors(prev => ({ ...prev, nin: undefined }))
-                        }}
-                        placeholder="Enter your 11-digit NIN"
-                        maxLength={11}
-                        className={fc('nin')}
-                      />
-                      <p className="text-xs text-slate-400 font-poppins-regular mt-1">{nin.length}/11 digits</p>
-                      <Err field="nin" />
-                    </div>
-
-                    <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 text-sm text-blue-800 font-poppins-regular">
-                      Your NIN is stored securely and is only used to verify your identity. It is never shared or displayed publicly.
-                    </div>
-                  </>
-                )}
               </motion.div>
             )}
 
@@ -1062,18 +990,14 @@ const Engine: React.FC = () => {
                   <p className="text-sm font-poppins-bold text-slate-800">
                     {SEEKER_CATEGORIES.find(c => c.value === seekerCategory)?.label ?? seekerCategory}
                   </p>
-                  {isDocumentCategory ? (
-                    <p className="text-xs text-slate-500 font-poppins-regular mt-1">Document: {verificationFile?.name ?? '—'}</p>
-                  ) : (
-                    <p className="text-xs text-slate-500 font-poppins-regular mt-1">NIN submitted for verification</p>
-                  )}
+                  <p className="text-xs text-slate-500 font-poppins-regular mt-1">
+                    {verificationFile ? `Document: ${verificationFile.name}` : 'No document uploaded'}
+                  </p>
                 </div>
 
-                {isDocumentCategory && (
-                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800 font-poppins-regular">
-                    Your listing will be reviewed before it goes live. This usually takes less than 24 hours.
-                  </div>
-                )}
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800 font-poppins-regular">
+                  Your listing will be reviewed before it goes live. This usually takes less than 24 hours.
+                </div>
               </motion.div>
             )}
 
