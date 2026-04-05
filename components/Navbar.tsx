@@ -43,9 +43,9 @@ function buildActivityToast(detail: LiveUpdateEventDetail): ActivityToastData {
       id: `${detail.type}-${Date.now()}`,
       kind: 'request',
       title: 'New Connection Request',
-      message: 'Someone wants to connect with you. Review their listing on your dashboard.',
-      ctaLabel: 'View Request',
-      ctaHref: '/dashboard',
+      message: 'Someone wants to connect with you. Tap to review their request.',
+      ctaLabel: 'Review Request',
+      ctaHref: '/dashboard?requests=incoming',
       createdAt: now,
     }
   }
@@ -55,9 +55,9 @@ function buildActivityToast(detail: LiveUpdateEventDetail): ActivityToastData {
       id: `${detail.type}-${Date.now()}`,
       kind: 'approved',
       title: 'Request Approved!',
-      message: 'Your connection request was approved. You can now see their contact.',
-      ctaLabel: 'Go to Dashboard',
-      ctaHref: '/dashboard',
+      message: 'Your connection request was approved. Tap to unlock their number.',
+      ctaLabel: 'View Contact',
+      ctaHref: '/dashboard?requests=outgoing',
       createdAt: now,
     }
   }
@@ -68,6 +68,18 @@ function buildActivityToast(detail: LiveUpdateEventDetail): ActivityToastData {
       kind: 'declined',
       title: 'Request Declined',
       message: 'One of your connection requests was declined.',
+      ctaLabel: 'View Requests',
+      ctaHref: '/dashboard?requests=outgoing',
+      createdAt: now,
+    }
+  }
+
+  if (notificationType === 'CONTACT_UNLOCK_APPROVED') {
+    return {
+      id: `${detail.type}-${Date.now()}`,
+      kind: 'approved',
+      title: 'Number Unlocked',
+      message: 'A chain member has unlocked their phone number.',
       ctaLabel: 'View Dashboard',
       ctaHref: '/dashboard',
       createdAt: now,
@@ -82,6 +94,64 @@ function buildActivityToast(detail: LiveUpdateEventDetail): ActivityToastData {
     ctaLabel: 'View Dashboard',
     ctaHref: '/dashboard',
     createdAt: now,
+  }
+}
+
+function resolveNotificationHref(n: NotificationItem): string {
+  const p = n.payload ?? {}
+  const str = (key: string) => (typeof p[key] === 'string' ? (p[key] as string) : null)
+
+  switch (n.type) {
+    // Someone sent you a connection request → open incoming requests tab
+    case 'INTEREST_REQUESTED':
+      return '/dashboard?requests=incoming'
+
+    // Your request was approved → open outgoing tab to see contact / call button
+    case 'INTEREST_APPROVED':
+    case 'CONTACT_APPROVED':
+      return '/dashboard?requests=outgoing'
+
+    // Your request was declined → outgoing tab
+    case 'INTEREST_DECLINED':
+      return '/dashboard?requests=outgoing'
+
+    // Your own sent request confirmation → outgoing tab
+    case 'INTEREST_SENT':
+      return '/dashboard?requests=outgoing'
+
+    // New match found → dashboard (matches are shown inline per listing)
+    case 'AUTO_RECOMMENDATION_FOUND':
+      return '/dashboard'
+
+    // Chain events → dashboard
+    case 'CHAIN_PENDING':
+    case 'CHAIN_LOCKED':
+    case 'CHAIN_BROKEN':
+    case 'MATCH_RERUN':
+      return '/dashboard'
+
+    // Someone unlocked their number in a chain → dashboard
+    case 'CONTACT_UNLOCK_APPROVED':
+      return '/dashboard'
+
+    // Vacancy alert nearby → vacancy detail page
+    case 'VACANCY_ALERT_SHARED': {
+      const vacancyId = str('vacancyAlertId')
+      return vacancyId ? `/vacancy/${vacancyId}` : '/vacancies'
+    }
+
+    // Your listing's available date is stale → dashboard to edit listing
+    case 'AVAILABILITY_STALE':
+      return '/dashboard'
+
+    // Listing expired or request released → dashboard
+    case 'LISTING_EXPIRED':
+    case 'REQUEST_RELEASED':
+    case 'INTEREST_EXPIRED':
+      return '/dashboard'
+
+    default:
+      return '/dashboard'
   }
 }
 
@@ -222,12 +292,7 @@ const Navbar: React.FC = () => {
     setNotificationPulseActive(false)
     setMobileMenuOpen(false)
 
-    const vacancyId = typeof notification.payload?.vacancyAlertId === 'string' ? notification.payload.vacancyAlertId : null
-    if (notification.type === 'VACANCY_ALERT_SHARED' && vacancyId) {
-      router.push(`/vacancy/${vacancyId}`)
-    } else {
-      router.push('/dashboard')
-    }
+    router.push(resolveNotificationHref(notification))
   }
 
   const handleLogout = async () => {

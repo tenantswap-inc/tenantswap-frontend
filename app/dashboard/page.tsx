@@ -27,7 +27,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { Client } from '@/shared/utils/ApiClient';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AuthLayout from '@/app/AuthLayout';
 import UpdateEngine from '@/components/UpdateListing';
 import { Alert } from '@heroui/alert';
@@ -97,6 +97,7 @@ const Dashboard: React.FC = () => {
   const requestAttentionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSoundIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const pendingIncomingListings = useMemo(
     () =>
@@ -320,6 +321,15 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     readCurrentUser().then(() => Promise.all([readRequests(), readVacancies()])).finally(() => setHydrated(true));
   }, []);
+
+  // Deep-link from notification clicks
+  useEffect(() => {
+    const tab = searchParams.get('requests');
+    if (tab === 'incoming' || tab === 'outgoing') {
+      setRequestTab(tab);
+      setOpenRequestList(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!openRequestList) return;
