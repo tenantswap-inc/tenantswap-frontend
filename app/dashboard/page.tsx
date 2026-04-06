@@ -900,10 +900,10 @@ const Dashboard: React.FC = () => {
                         {listing.nearMisses.map((nm: NearMiss) => {
                           const missLabel =
                             nm.missReason === 'wrong_type'
-                              ? `They need a ${nm.desiredType} — you have a ${nm.currentType}`
+                              ? `You want a ${listing.desiredType} — they have a ${nm.currentType}`
                               : nm.missReason === 'over_budget'
-                              ? `Their rent (₦${nm.currentRent.toLocaleString()}) is just above your budget`
-                              : 'Not available yet';
+                              ? `Their rent (₦${nm.currentRent.toLocaleString()}) is just above your ₦${listing.maxBudget.toLocaleString()} budget`
+                              : `Their apartment in ${nm.currentCity} isn't available yet`;
                           return (
                             <div key={nm.id} className="flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3">
                               <TrendingUp size={14} className="text-amber-400 mt-0.5 shrink-0" />
