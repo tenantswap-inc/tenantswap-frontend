@@ -140,6 +140,10 @@ function resolveNotificationHref(n: NotificationItem): string {
       return vacancyId ? `/vacancy/${vacancyId}` : '/vacancies'
     }
 
+    // Near-miss: someone almost matched → dashboard to see near-misses
+    case 'NEAR_MISS':
+      return '/dashboard'
+
     // Your listing's available date is stale → dashboard to edit listing
     case 'AVAILABILITY_STALE':
       return '/dashboard'

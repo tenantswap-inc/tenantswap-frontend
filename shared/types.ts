@@ -241,6 +241,16 @@ export interface VacancyAlert {
   createdAt?: string;
 }
 
+export interface NearMiss {
+  id: string;
+  currentType: string;
+  currentCity: string;
+  currentState: string;
+  currentRent: number;
+  desiredType: string;
+  missReason: 'wrong_type' | 'over_budget' | 'not_available';
+}
+
 export interface UserSwapListing {
   id: string;
   userId: string;
@@ -274,6 +284,8 @@ export interface UserSwapListing {
   lastRecommendationCount: number;
   autoSearchLastRunAt: string | null;
   autoSearchMatchedAt: string | null;
+  viewCount: number;
+  nearMisses: NearMiss[];
   createdAt: string;
   vacancyAlert?: VacancyAlert | null;
   matchCount: number;

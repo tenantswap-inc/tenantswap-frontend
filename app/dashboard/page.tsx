@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {
   IncomingInterestListing,
   MatchCandidate,
+  NearMiss,
   User,
   UserSwapListing,
   UserSwapRequest,
@@ -15,6 +16,7 @@ import {
   Bell,
   Plus,
   Phone,
+  TrendingUp,
   UserCheck,
   AlertCircle,
   FileUp,
@@ -85,6 +87,7 @@ const Dashboard: React.FC = () => {
   const [vacancySaving, setVacancySaving] = useState(false);
   const [myVacancies, setMyVacancies] = useState<VacancyAlert[]>([]);
   const [copiedVacancyId, setCopiedVacancyId] = useState<string | null>(null);
+  const [demandByCity, setDemandByCity] = useState<Record<string, number>>({});
   const [resubmitListingId, setResubmitListingId] = useState<string | null>(null);
   const [resubmitting, setResubmitting] = useState(false);
   const resubmitFileRef = useRef<HTMLInputElement | null>(null);
@@ -168,6 +171,23 @@ const Dashboard: React.FC = () => {
     if (!token) return;
     const response = await Client.get('/vacancy/me/all', {}, { Authorization: `Bearer ${token}` });
     if (response.status === 200) setMyVacancies(response.data.data ?? []);
+  };
+
+  const readDemand = async (listings: { desiredCity: string }[]) => {
+    const token = localStorage.getItem('JWT_TOKEN');
+    if (!token) return;
+    const cities = [...new Set(listings.map((l) => l.desiredCity).filter(Boolean))];
+    const results = await Promise.allSettled(
+      cities.map((city) => Client.get('/listings/demand', { city }, { Authorization: `Bearer ${token}` })),
+    );
+    const map: Record<string, number> = {};
+    cities.forEach((city, i) => {
+      const r = results[i];
+      if (r.status === 'fulfilled' && r.value.status === 200) {
+        map[city] = r.value.data?.data?.count ?? 0;
+      }
+    });
+    setDemandByCity(map);
   };
 
   const handleConnect = async (targetListingId: string) => {
@@ -314,7 +334,18 @@ const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    readCurrentUser().then(() => Promise.all([readRequests(), readVacancies()])).finally(() => setHydrated(true));
+    readCurrentUser().then(async () => {
+      await Promise.all([readRequests(), readVacancies()]);
+      // fetch demand after user loads so we have their listing cities
+      const token = localStorage.getItem('JWT_TOKEN');
+      if (token) {
+        const res = await Client.get('/users/me', {}, { Authorization: `Bearer ${token}` });
+        if (res.status === 200) {
+          const listings: { desiredCity: string }[] = res.data?.data?.user?.listings ?? [];
+          void readDemand(listings);
+        }
+      }
+    }).finally(() => setHydrated(true));
   }, []);
 
   // Deep-link from notification clicks
@@ -726,6 +757,24 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
 
+              {/* Activity signals */}
+              {(listing.viewCount > 0 || demandByCity[listing.desiredCity]) && (
+                <div className="flex flex-wrap gap-2 mb-3 -mt-2">
+                  {listing.viewCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-poppins-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                      <Search size={11} className="text-slate-400" />
+                      Seen {listing.viewCount} {listing.viewCount === 1 ? 'time' : 'times'}
+                    </span>
+                  )}
+                  {(demandByCity[listing.desiredCity] ?? 0) > 0 && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-poppins-medium text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
+                      <Bell size={11} className="text-emerald-500" />
+                      {demandByCity[listing.desiredCity]} active {demandByCity[listing.desiredCity] === 1 ? 'seeker' : 'seekers'} in {listing.desiredCity}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Vacancy alert prompt — SWAP listings only */}
               {listing.listingType !== 'SEEKING' && (
                 <div className="mb-5">
@@ -830,14 +879,53 @@ const Dashboard: React.FC = () => {
                   </div>
                 </>
               ) : (
-                <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
-                  <div className="relative w-10 h-10 mx-auto mb-3">
-                    <Search size={28} className="text-slate-300 absolute inset-0 m-auto" />
-                    <span className="absolute inset-0 rounded-full border-2 border-slate-200 border-t-emerald-400 animate-spin" />
+                <>
+                  <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
+                    <div className="relative w-10 h-10 mx-auto mb-3">
+                      <Search size={28} className="text-slate-300 absolute inset-0 m-auto" />
+                      <span className="absolute inset-0 rounded-full border-2 border-slate-200 border-t-emerald-400 animate-spin" />
+                    </div>
+                    <p className="text-sm font-poppins-bold text-slate-400">Still searching…</p>
+                    <p className="text-xs text-slate-300 font-poppins-regular mt-1">We'll notify you the moment someone matches.</p>
                   </div>
-                  <p className="text-sm font-poppins-bold text-slate-400">Still searching…</p>
-                  <p className="text-xs text-slate-300 font-poppins-regular mt-1">We'll notify you the moment someone matches.</p>
-                </div>
+
+                  {/* Near-misses */}
+                  {listing.nearMisses?.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-xs font-poppins-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <TrendingUp size={12} className="text-amber-400" />
+                        Close — but not quite
+                      </p>
+                      <div className="space-y-2">
+                        {listing.nearMisses.map((nm: NearMiss) => {
+                          const missLabel =
+                            nm.missReason === 'wrong_type'
+                              ? `They need a ${nm.desiredType} — you have a ${nm.currentType}`
+                              : nm.missReason === 'over_budget'
+                              ? `Their rent (₦${nm.currentRent.toLocaleString()}) is just above your budget`
+                              : 'Not available yet';
+                          return (
+                            <div key={nm.id} className="flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3">
+                              <TrendingUp size={14} className="text-amber-400 mt-0.5 shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-poppins-bold text-slate-700">
+                                  Someone in {nm.currentCity}
+                                </p>
+                                <p className="text-xs font-poppins-regular text-slate-500 mt-0.5">{missLabel}</p>
+                              </div>
+                              <span className="shrink-0 text-[10px] font-poppins-bold uppercase tracking-widest text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
+                                {nm.missReason === 'wrong_type' ? 'Type' : nm.missReason === 'over_budget' ? 'Budget' : 'Timing'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[10px] font-poppins-regular text-slate-300 mt-3 text-center">
+                        Update your listing to improve your match rate.
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
 
               {listingIndex < currentUser.listings.length - 1 && (

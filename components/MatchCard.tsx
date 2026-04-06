@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { MatchCandidate, UserSwapRequest } from '@/shared/types'
 import { TrendingUp, ArrowRight, MapPin, BadgeCheck, Phone, UserRound, RotateCcw } from 'lucide-react'
 import posthog from 'posthog-js'
+import { Client } from '@/shared/utils/ApiClient'
 
 interface Props {
   match: MatchCandidate
@@ -98,6 +99,8 @@ const MatchCard: React.FC<Props> = ({ match, relatedRequest, onRequestAgain, set
                 target_type: t.currentType,
                 target_rent: t.currentRent,
               })
+              const token = localStorage.getItem('JWT_TOKEN')
+              if (token) void Client.post(`/listings/${t.id}/view`, {}, { Authorization: `Bearer ${token}` }).catch(() => undefined)
               setSelectedMatch(match)
             }}
             whileHover={{ scale: 1.05 }}
