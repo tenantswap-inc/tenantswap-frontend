@@ -33,6 +33,7 @@ export default function VacancyPublicPage({ vacancy, vacancyId }: Props) {
   const [copied, setCopied] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [connectStatus, setConnectStatus] = useState<'idle' | 'success' | 'no_listing' | 'already' | 'error'>('idle');
+  const [connectErrorMsg, setConnectErrorMsg] = useState('');
 
   useEffect(() => {
     void fetch(`${apiBase}/vacancy/${vacancyId}/click`, { method: 'POST' }).catch(() => undefined);
@@ -70,15 +71,18 @@ export default function VacancyPublicPage({ vacancy, vacancyId }: Props) {
         setConnectStatus('success');
       } else {
         const msg: string = res.data?.message ?? '';
-        if (msg.includes('ACTIVE listing') || msg.includes('NO_LISTING')) {
+        console.error('Vacancy connect error:', res.status, msg);
+        if (msg.toLowerCase().includes('active listing') || msg.toLowerCase().includes('need an active')) {
           setConnectStatus('no_listing');
-        } else if (msg.includes('compatible')) {
-          setConnectStatus('no_listing'); // listing exists but location incompatible
         } else {
+          setConnectErrorMsg(msg || `Error ${res.status}`);
           setConnectStatus('error');
         }
       }
-    } catch {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Unable to reach the server.';
+      console.error('Vacancy connect exception:', e);
+      setConnectErrorMsg(msg);
       setConnectStatus('error');
     } finally {
       setConnecting(false);
@@ -219,7 +223,10 @@ export default function VacancyPublicPage({ vacancy, vacancyId }: Props) {
 
             {connectStatus === 'error' && (
               <div className="mb-4 rounded-2xl bg-red-50 border border-red-200 px-4 py-3">
-                <p className="text-sm font-poppins-bold text-red-700">Something went wrong. Please try again.</p>
+                <p className="text-sm font-poppins-bold text-red-700">Could not connect</p>
+                {connectErrorMsg && (
+                  <p className="text-xs font-poppins-regular text-red-600 mt-0.5">{connectErrorMsg}</p>
+                )}
               </div>
             )}
 

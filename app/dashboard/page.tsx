@@ -129,22 +129,28 @@ const Dashboard: React.FC = () => {
   const requestCount = pendingIncomingRequestCount + pendingOutgoingRequests.length;
 
   const readCurrentUser = async () => {
-    try {
-      const token = localStorage.getItem('JWT_TOKEN');
-      if (!token) { router.replace('/login'); return; }
+    const token = localStorage.getItem('JWT_TOKEN');
+    if (!token) { router.replace('/login'); return; }
 
+    try {
       const response = await Client.get('/users/me', {}, { Authorization: `Bearer ${token}` });
 
       if (response.status === 200) {
-        setCurrentUser(response.data.data.user);
+        const user = response.data.data.user;
+        setCurrentUser(user);
+        // Kick off demand fetch with the listings we already have — no second /users/me call
+        void readDemand(user?.listings ?? []);
         return;
       }
 
-      localStorage.removeItem('JWT_TOKEN');
-      router.replace('/login');
+      // Only clear token and redirect on explicit auth failures
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem('JWT_TOKEN');
+        router.replace('/login');
+      }
+      // Any other status (500, network timeout etc.) — leave token, show nothing
     } catch {
-      localStorage.removeItem('JWT_TOKEN');
-      router.replace('/login');
+      // Network error — don't log the user out, just silently fail
     }
   };
 
@@ -334,18 +340,9 @@ const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    readCurrentUser().then(async () => {
-      await Promise.all([readRequests(), readVacancies()]);
-      // fetch demand after user loads so we have their listing cities
-      const token = localStorage.getItem('JWT_TOKEN');
-      if (token) {
-        const res = await Client.get('/users/me', {}, { Authorization: `Bearer ${token}` });
-        if (res.status === 200) {
-          const listings: { desiredCity: string }[] = res.data?.data?.user?.listings ?? [];
-          void readDemand(listings);
-        }
-      }
-    }).finally(() => setHydrated(true));
+    // Fire all independent fetches in parallel — readCurrentUser also triggers readDemand internally
+    Promise.all([readCurrentUser(), readRequests(), readVacancies()])
+      .finally(() => setHydrated(true));
   }, []);
 
   // Deep-link from notification clicks

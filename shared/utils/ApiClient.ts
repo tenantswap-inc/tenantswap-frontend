@@ -8,6 +8,7 @@ const apiClient: AxiosInstance = axios.create({
     "Content-Type": "application/json",
   },
   validateStatus: () => true,
+  timeout: 15000, // 15 s — prevents requests hanging indefinitely
 });
 
 export const Client = {
