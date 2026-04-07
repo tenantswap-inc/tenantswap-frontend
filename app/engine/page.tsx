@@ -248,7 +248,7 @@ const SEEKER_CATEGORIES: {
 
 const Engine: React.FC = () => {
   const router = useRouter()
-  const { token } = useToken()
+  const { token, ready: tokenReady } = useToken()
   const [fromDashboard, setFromDashboard] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -320,9 +320,12 @@ const Engine: React.FC = () => {
     setFromDashboard(window.location.search.includes('from=dashboard'))
   }, [])
 
-  // Fetch existing listings on mount to determine if user has already set up their engine
+  // Fetch existing listings once the token is definitively known
+  // Wait for tokenReady so we never run with a null token that's just not loaded yet
   useEffect(() => {
-    if (!token) { setExistingListings([]); return }
+    if (!tokenReady) return  // token not determined yet — keep showing spinner
+    if (!token) { setExistingListings([]); return }  // not logged in
+
     Client.get<{ data: { user: { listings: UserSwapListing[] } } }>(
       '/users/me', {}, { Authorization: `Bearer ${token}` }
     ).then((res) => {
@@ -330,25 +333,23 @@ const Engine: React.FC = () => {
       setExistingListings(listings)
 
       if (listings.length > 0) {
-        // Determine mode from most recent non-closed listing, else most recent any
-        const active = listings.find((l) => l.status !== 'CLOSED') ?? listings[0]
-        if (active.listingType === 'SWAP') {
+        // Determine mode from most recent non-closed listing, fallback to any
+        const recent = listings.find((l) => l.status !== 'CLOSED') ?? listings[0]
+        if (recent.listingType === 'SWAP') {
           setListingMode('SWAP')
         } else {
           setListingMode('SEEKING')
-          // Pre-select seekerCategory from their most recent SEEKING listing
-          const lastSeekingCat = listings
+          // Pre-select seekerCategory from most recent SEEKING listing
+          const lastCat = listings
             .filter((l) => l.listingType === 'SEEKING' && l.seekerCategory)
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
             ?.seekerCategory ?? null
-          if (lastSeekingCat) setSeekerCategory(lastSeekingCat)
+          if (lastCat) setSeekerCategory(lastCat)
         }
-      } else {
-        setExistingListings([])
       }
     }).catch(() => setExistingListings([]))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token])
+  }, [tokenReady])
 
   const toggleFeature = (f: string) =>
     setSelectedFeatures((prev) =>
