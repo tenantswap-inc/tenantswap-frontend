@@ -23,7 +23,7 @@ import StepHeader from '@/components/Stepper'
 import { BinocularsIcon, DoorOpenIcon } from 'lucide-react'
 import { Client } from '@/shared/utils/ApiClient'
 import { useToken, unsetToken } from '@/shared/hooks/useToken'
-import type { Location, UserSwapListing } from '@/shared/types'
+import type { Location, SeekerCategory, UserSwapListing } from '@/shared/types'
 import posthog from 'posthog-js'
 import {
   ALLOWED_SWAP_STATES,
@@ -37,7 +37,6 @@ import {
 type PropertyType = (typeof PROPERTY_TYPES)[number]
 type Timeline = (typeof TIMELINES)[number]
 type ListingMode = 'undecided' | 'SWAP' | 'SEEKING'
-type SeekerCategory = 'NYSC' | 'OTHER'
 
 // ─── schemas ──────────────────────────────────────────────────────────────────
 
