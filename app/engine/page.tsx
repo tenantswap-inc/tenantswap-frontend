@@ -23,7 +23,7 @@ import StepHeader from '@/components/Stepper'
 import { BinocularsIcon, DoorOpenIcon } from 'lucide-react'
 import { Client } from '@/shared/utils/ApiClient'
 import { useToken, unsetToken } from '@/shared/hooks/useToken'
-import type { Location } from '@/shared/types'
+import type { Location, UserSwapListing } from '@/shared/types'
 import posthog from 'posthog-js'
 import {
   ALLOWED_SWAP_STATES,
@@ -297,6 +297,9 @@ const Engine: React.FC = () => {
   const [alertMsg, setAlertMsg] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // ── Existing listings (to skip gate for return users) ──────────────────────
+  const [existingListings, setExistingListings] = useState<UserSwapListing[] | null>(null)
+
   const desiredCities = getAllowedSwapCities(desiredState)
   const currentCities = getAllowedSwapCities(currentState)
   const vacancyCities = getAllowedSwapCities(vacancyState)
@@ -316,6 +319,36 @@ const Engine: React.FC = () => {
   useEffect(() => {
     setFromDashboard(window.location.search.includes('from=dashboard'))
   }, [])
+
+  // Fetch existing listings on mount to determine if user has already set up their engine
+  useEffect(() => {
+    if (!token) { setExistingListings([]); return }
+    Client.get<{ data: { user: { listings: UserSwapListing[] } } }>(
+      '/users/me', {}, { Authorization: `Bearer ${token}` }
+    ).then((res) => {
+      const listings: UserSwapListing[] = res.data?.data?.user?.listings ?? []
+      setExistingListings(listings)
+
+      if (listings.length > 0) {
+        // Determine mode from most recent non-closed listing, else most recent any
+        const active = listings.find((l) => l.status !== 'CLOSED') ?? listings[0]
+        if (active.listingType === 'SWAP') {
+          setListingMode('SWAP')
+        } else {
+          setListingMode('SEEKING')
+          // Pre-select seekerCategory from their most recent SEEKING listing
+          const lastSeekingCat = listings
+            .filter((l) => l.listingType === 'SEEKING' && l.seekerCategory)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+            ?.seekerCategory ?? null
+          if (lastSeekingCat) setSeekerCategory(lastSeekingCat)
+        }
+      } else {
+        setExistingListings([])
+      }
+    }).catch(() => setExistingListings([]))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
 
   const toggleFeature = (f: string) =>
     setSelectedFeatures((prev) =>
@@ -603,7 +636,45 @@ const Engine: React.FC = () => {
     )
   }
 
+  // ── Loading user info ──────────────────────────────────────────────────────
+  if (existingListings === null) {
+    return (
+      <GuestLayout>
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <Loader2 size={28} className="animate-spin text-emerald-500" />
+        </div>
+      </GuestLayout>
+    )
+  }
+
+  // ── Listing limit screen ───────────────────────────────────────────────────
+  if (existingListings.length >= 2) {
+    return (
+      <GuestLayout>
+        <div className="max-w-2xl mx-auto py-20 px-4 text-center">
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-12">
+            <div className="w-20 h-20 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-6">
+              <Home size={36} className="text-amber-500" />
+            </div>
+            <h2 className="text-2xl font-poppins-bold text-slate-900 mb-3">Listing Limit Reached</h2>
+            <p className="text-slate-500 font-poppins-regular mb-8">
+              You already have <span className="font-poppins-bold text-slate-700">2 listings</span> on TenantSwap. Please close an existing listing before creating a new one.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard')}
+              className="inline-flex items-center gap-2 bg-emerald-600 text-white px-8 py-3 rounded-xl font-poppins-bold transition-all hover:bg-emerald-700"
+            >
+              Go to Dashboard <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+      </GuestLayout>
+    )
+  }
+
   // ── Gate screen ────────────────────────────────────────────────────────────
+  // Only show if first-time user (no listings yet) OR returning SEEKING user who hasn't picked a category
 
   if (
     listingMode === 'undecided' ||
@@ -632,47 +703,51 @@ const Engine: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.34, ease: 'easeOut' }}
           >
-            <h3 className="text-xl font-poppins-bold text-slate-800 mb-2">
-              Do you Live in a Rented Apartment?
-            </h3>
-            <p className="text-sm text-slate-400 font-poppins-regular mb-6">
-              This helps us find the right match for you.
-            </p>
+            {/* Only ask about apartment for first-time users */}
+            {existingListings.length === 0 && (
+              <>
+                <h3 className="text-xl font-poppins-bold text-slate-800 mb-2">
+                  Do you Live in a Rented Apartment?
+                </h3>
+                <p className="text-sm text-slate-400 font-poppins-regular mb-6">
+                  This helps us find the right match for you.
+                </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-              <button
-                type="button"
-                onClick={() => setListingMode('SWAP')}
-                className="rounded-2xl border border-slate-200 p-6 text-left hover:border-emerald-500 hover:bg-emerald-50 transition-all group"
-              >
-                <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-4 group-hover:bg-emerald-200 transition-colors">
-                  <Home size={22} className="text-emerald-700" />
-                </div>
-                <p className="font-poppins-bold text-slate-800 text-base">
-                  Yes, I have an apartment
-                </p>
-                <p className="text-xs text-slate-500 font-poppins-regular mt-1">
-                  I want to swap my current apartment for one in another
-                  location
-                </p>
-              </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                  <button
+                    type="button"
+                    onClick={() => setListingMode('SWAP')}
+                    className="rounded-2xl border border-slate-200 p-6 text-left hover:border-emerald-500 hover:bg-emerald-50 transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-4 group-hover:bg-emerald-200 transition-colors">
+                      <Home size={22} className="text-emerald-700" />
+                    </div>
+                    <p className="font-poppins-bold text-slate-800 text-base">
+                      Yes, I have an apartment
+                    </p>
+                    <p className="text-xs text-slate-500 font-poppins-regular mt-1">
+                      I want to swap my current apartment for one in another location
+                    </p>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setListingMode('SEEKING')}
-                className="rounded-2xl border border-slate-200 p-6 text-left hover:border-blue-500 hover:bg-blue-50 transition-all group"
-              >
-                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-4 group-hover:bg-blue-200 transition-colors">
-                  <BinocularsIcon size={22} className="text-blue-700" />
+                  <button
+                    type="button"
+                    onClick={() => setListingMode('SEEKING')}
+                    className="rounded-2xl border border-slate-200 p-6 text-left hover:border-blue-500 hover:bg-blue-50 transition-all group"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-4 group-hover:bg-blue-200 transition-colors">
+                      <BinocularsIcon size={22} className="text-blue-700" />
+                    </div>
+                    <p className="font-poppins-bold text-slate-800 text-base">
+                      No, I&apos;m looking for one
+                    </p>
+                    <p className="text-xs text-slate-500 font-poppins-regular mt-1">
+                      I need to find housing in a specific city
+                    </p>
+                  </button>
                 </div>
-                <p className="font-poppins-bold text-slate-800 text-base">
-                  No, I'm looking for one
-                </p>
-                <p className="text-xs text-slate-500 font-poppins-regular mt-1">
-                  I need to find housing in a specific city
-                </p>
-              </button>
-            </div>
+              </>
+            )}
 
             {listingMode === 'SEEKING' && (
               <motion.div
