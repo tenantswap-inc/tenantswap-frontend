@@ -72,8 +72,10 @@ export default function VacancyPublicPage({ vacancy, vacancyId }: Props) {
       } else {
         const msg: string = res.data?.message ?? '';
         console.error('Vacancy connect error:', res.status, msg);
-        if (msg.toLowerCase().includes('active listing') || msg.toLowerCase().includes('need an active')) {
+        if (msg.toLowerCase().includes('active listing') || msg.toLowerCase().includes('need an active') || msg.toLowerCase().includes('not created a listing')) {
           setConnectStatus('no_listing');
+        } else if (res.status === 409 || msg.toLowerCase().includes('already')) {
+          setConnectStatus('already');
         } else {
           setConnectErrorMsg(msg || `Error ${res.status}`);
           setConnectStatus('error');
