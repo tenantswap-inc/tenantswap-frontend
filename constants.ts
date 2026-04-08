@@ -16,18 +16,8 @@ export const TIMELINES: Timeline[] = [
 ];
 
 export const FEATURES = [
-  "Electricity",
   "Water",
-  "Fenced",
-  "PoP",
-  "Gates",
-  "Wardrobe",
-  "Cupboards",
   "Landlord off site",
-  "Tiles",
-  "Garden",
-  "Water Heater",
-  "Furnished",
 ];
 
 // ─── Locations ────────────────────────────────────────────────────────────────
