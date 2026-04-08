@@ -23,6 +23,7 @@ import {
   Search,
   Share2,
   Copy,
+  ChevronRight,
 } from 'lucide-react';
 import { Client } from '@/shared/utils/ApiClient';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -90,6 +91,7 @@ const Dashboard: React.FC = () => {
   const [demandByCity, setDemandByCity] = useState<Record<string, number>>({});
   const [resubmitListingId, setResubmitListingId] = useState<string | null>(null);
   const [resubmitting, setResubmitting] = useState(false);
+  const [recentVacancies, setRecentVacancies] = useState<{ id: string; apartmentType: string; city: string; state: string }[]>([]);
   const resubmitFileRef = useRef<HTMLInputElement | null>(null);
   const previousIncomingOpenRequests = useRef(0);
   const requestAttentionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,6 +142,9 @@ const Dashboard: React.FC = () => {
         setCurrentUser(user);
         // Kick off demand fetch with the listings we already have — no second /users/me call
         void readDemand(user?.listings ?? []);
+        // Fetch vacancies near user's desired location
+        const firstListing = user?.listings?.[0];
+        void readRecentVacancies(firstListing?.desiredCity, firstListing?.desiredState);
         return;
       }
 
@@ -177,6 +182,18 @@ const Dashboard: React.FC = () => {
     if (!token) return;
     const response = await Client.get('/vacancy/me/all', {}, { Authorization: `Bearer ${token}` });
     if (response.status === 200) setMyVacancies(response.data.data ?? []);
+  };
+
+  const readRecentVacancies = async (desiredCity?: string, desiredState?: string) => {
+    try {
+      const params: Record<string, string> = { limit: '5' };
+      if (desiredCity) params.city = desiredCity;
+      else if (desiredState) params.state = desiredState;
+      const response = await Client.get('/vacancy', params);
+      if (response.status === 200) {
+        setRecentVacancies(response.data.data?.items ?? response.data.data ?? []);
+      }
+    } catch { /* silent */ }
   };
 
   const readDemand = async (listings: { desiredCity: string }[]) => {
@@ -501,6 +518,10 @@ const Dashboard: React.FC = () => {
   const allApprovedIncoming = incomingListings.flatMap((il) =>
     il.requests.filter((r) => r.status === 'CONTACT_APPROVED'),
   );
+
+  // Free plan: 2 contact unlocks lifetime. Premium: unlimited.
+  const FREE_CONTACT_LIMIT = 2;
+  const isPremium = currentUser.subscriptionStatus === 'ACTIVE';
   const rejectedListings = currentUser.listings.filter(
     (l) => l.listingType === 'SEEKING' && l.verificationStatus === 'REJECTED',
   );
@@ -618,6 +639,33 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* ── Vacancy banner ──────────────────────────────────────────────── */}
+        {recentVacancies.length > 0 && (() => {
+          const v = recentVacancies[0];
+          const count = recentVacancies.length;
+          const location = activeListing?.desiredCity || v.city;
+          return (
+            <Link
+              href={`/vacancy/${v.id}`}
+              className="flex items-center gap-3 w-full mb-6 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-4 shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-transform"
+            >
+              <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
+                <span className="absolute h-full w-full rounded-full bg-white/30 animate-ping" />
+                <Megaphone size={16} className="text-white relative z-10" />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-poppins-bold text-white/70 uppercase tracking-widest mb-0.5">
+                  {count} new vacanc{count === 1 ? 'y' : 'ies'} near {location}
+                </p>
+                <p className="text-sm font-poppins-bold text-white truncate">
+                  {v.apartmentType} available · {v.city}, {v.state}
+                </p>
+              </div>
+              <ChevronRight size={18} className="text-white/70 shrink-0" />
+            </Link>
+          );
+        })()}
+
         {/* ── Updates strip ───────────────────────────────────────────────── */}
         {hasUpdates && (
           <div className="mb-8 space-y-2">
@@ -649,22 +697,43 @@ const Dashboard: React.FC = () => {
                 </button>
               </div>
             ))}
-            {allApprovedOutgoing.map((req) => (
-              <div key={req.interestId} className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
-                <UserCheck size={14} className="text-blue-600 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-blue-500 font-poppins-bold uppercase tracking-widest">Contact Approved</p>
-                  <p className="text-sm font-poppins-bold text-slate-800">{req.owner.fullName}</p>
-                  {req.owner.phone && <p className="text-xs text-slate-500 font-poppins-regular">{req.owner.phone}</p>}
+            {allApprovedOutgoing.map((req, idx) => {
+              // First FREE_CONTACT_LIMIT contacts are always visible.
+              // Beyond that, locked for non-premium users.
+              const isLocked = !isPremium && idx >= FREE_CONTACT_LIMIT;
+              if (isLocked) {
+                return (
+                  <div key={req.interestId} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-slate-400"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-slate-400 font-poppins-bold uppercase tracking-widest">Contact Locked</p>
+                      <p className="text-sm font-poppins-bold text-slate-400">•••••••••</p>
+                    </div>
+                    <span className="shrink-0 inline-flex items-center rounded-full bg-amber-500 px-3 py-1.5 text-xs font-poppins-bold text-white whitespace-nowrap">
+                      Upgrade
+                    </span>
+                  </div>
+                );
+              }
+              return (
+                <div key={req.interestId} className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+                  <UserCheck size={14} className="text-blue-600 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-blue-500 font-poppins-bold uppercase tracking-widest">Contact Approved</p>
+                    <p className="text-sm font-poppins-bold text-slate-800">{req.owner.fullName}</p>
+                    {req.owner.phone && <p className="text-xs text-slate-500 font-poppins-regular">{req.owner.phone}</p>}
+                  </div>
+                  {req.owner.phone && (
+                    <a href={`tel:${req.owner.phone}`}
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-blue-600 transition-all hover:bg-blue-50 whitespace-nowrap">
+                      <Phone size={11} /> Call
+                    </a>
+                  )}
                 </div>
-                {req.owner.phone && (
-                  <a href={`tel:${req.owner.phone}`}
-                    className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-blue-600 transition-all hover:bg-blue-50 whitespace-nowrap">
-                    <Phone size={11} /> Call
-                  </a>
-                )}
-              </div>
-            ))}
+              );
+            })}
             {allApprovedIncoming.map((req) => (
               <div key={req.interestId} className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
                 <UserCheck size={14} className="text-blue-600 shrink-0" />

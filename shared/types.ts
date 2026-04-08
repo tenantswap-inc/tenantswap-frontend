@@ -321,6 +321,7 @@ export interface User {
   workplaceState: string | null;
   nin: string | null;
   ninVerifiedAt: string | null;
+  contactsUnlocked: number;
   createdAt: string;
   listings: UserSwapListing[];
 }
