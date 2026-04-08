@@ -34,11 +34,11 @@ export default function ContactsPage() {
         Client.get('/users/me', {}, { Authorization: `Bearer ${token}` }),
       ])
 
-      const premium = meRes?.data?.subscriptionStatus === 'ACTIVE'
+      const premium = meRes?.data?.data?.user?.subscriptionStatus === 'ACTIVE'
       setIsPremium(premium)
 
-      const outgoing: UserSwapRequest[] = outRes?.data ?? []
-      const incoming: IncomingInterestListing[] = inRes?.data ?? []
+      const outgoing: UserSwapRequest[] = outRes?.data?.data?.requests ?? []
+      const incoming: IncomingInterestListing[] = inRes?.data?.data?.listings ?? []
 
       const approvedOutgoing = outgoing.filter((r) => r.status === 'CONTACT_APPROVED')
       const approvedIncoming = incoming.flatMap((il) =>
