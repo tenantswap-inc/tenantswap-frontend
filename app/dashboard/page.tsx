@@ -37,6 +37,7 @@ import MatchModal from '@/components/MatchingModal'
 import MatchCard from '@/components/MatchCard'
 import RequestListModal from '@/components/RequestListModal'
 import VacancyAlertModal from '@/components/VacancyAlertModal'
+import CaretakerModal from '@/components/CaretakerModal'
 import {
   LIVE_UPDATE_CUE_EVENT,
   LIVE_UPDATE_EVENT,
@@ -119,6 +120,7 @@ const Dashboard: React.FC = () => {
   const [recentVacancies, setRecentVacancies] = useState<
     { id: string; apartmentType: string; city: string; state: string }[]
   >([])
+  const [caretakerListing, setCaretakerListing] = useState<{ id: string; label: string } | null>(null)
   const resubmitFileRef = useRef<HTMLInputElement | null>(null)
   const previousIncomingOpenRequests = useRef(0)
   const requestAttentionTimeoutRef = useRef<ReturnType<
@@ -606,6 +608,27 @@ const Dashboard: React.FC = () => {
     return () => clearTimeout(t)
   }, [errorMsg])
 
+  // Show caretaker modal for the first SWAP listing missing caretaker info
+  useEffect(() => {
+    if (!currentUser) return
+    if (currentUser.caretakerPromptDismissedAt) return
+    if (sessionStorage.getItem('caretaker_maybe_later')) return
+
+    const target = currentUser.listings.find(
+      (l) => l.listingType === 'SWAP' && l.status === 'ACTIVE' && !l.caretakerName
+    )
+    if (!target) return
+
+    // Small delay so the dashboard renders first
+    const t = setTimeout(() => {
+      setCaretakerListing({
+        id: target.id,
+        label: `${target.currentType} in ${target.currentCity}`,
+      })
+    }, 1200)
+    return () => clearTimeout(t)
+  }, [currentUser])
+
   if (!hydrated)
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-primary-green">
@@ -756,6 +779,22 @@ const Dashboard: React.FC = () => {
         }}
         onSave={handleSaveVacancyAlert}
       />
+      {caretakerListing && (
+        <CaretakerModal
+          listingId={caretakerListing.id}
+          listingLabel={caretakerListing.label}
+          onSuccess={() => {
+            setCaretakerListing(null)
+            setSuccessMsg('Caretaker contact saved. Thank you!')
+            void readCurrentUser()
+          }}
+          onMaybeLater={() => {
+            sessionStorage.setItem('caretaker_maybe_later', '1')
+            setCaretakerListing(null)
+          }}
+          onDontAskAgain={() => setCaretakerListing(null)}
+        />
+      )}
 
       {/* Hidden resubmit file input */}
       <input

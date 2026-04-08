@@ -284,6 +284,8 @@ export interface UserSwapListing {
   lastRecommendationCount: number;
   autoSearchLastRunAt: string | null;
   autoSearchMatchedAt: string | null;
+  caretakerName: string | null;
+  caretakerPhone: string | null;
   viewCount: number;
   nearMisses: NearMiss[];
   createdAt: string;
@@ -322,6 +324,7 @@ export interface User {
   nin: string | null;
   ninVerifiedAt: string | null;
   contactsUnlocked: number;
+  caretakerPromptDismissedAt: string | null;
   createdAt: string;
   listings: UserSwapListing[];
 }
