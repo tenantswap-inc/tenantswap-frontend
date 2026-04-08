@@ -827,33 +827,45 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* ── Vacancy banner ──────────────────────────────────────────────── */}
-        {recentVacancies.length > 0 &&
-          (() => {
-            const v = recentVacancies[0]
-            const count = recentVacancies.length
-            const location = activeListing?.desiredCity || v.city
-            return (
-              <Link
-                href={`/vacancy/${v.id}`}
-                className="flex items-center gap-3 w-full mb-6 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-4 shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-transform"
-              >
-                <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
-                  <span className="absolute h-full w-full rounded-full bg-white/30 animate-ping" />
-                  <Megaphone size={16} className="text-white relative z-10" />
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-poppins-bold text-white/70 uppercase tracking-widest mb-0.5">
-                    {count} new vacanc{count === 1 ? 'y' : 'ies'} near{' '}
-                    {location}
-                  </p>
-                  <p className="text-sm font-poppins-bold text-white truncate">
-                    {v.apartmentType} available · {v.city}, {v.state}
-                  </p>
-                </div>
-                <ChevronRight size={18} className="text-white/70 shrink-0" />
-              </Link>
-            )
-          })()}
+        {(() => {
+          const v = recentVacancies[0]
+          const count = recentVacancies.length
+          const location = activeListing?.desiredCity || v?.city
+          const href = v ? `/vacancy/${v.id}` : '/vacancies'
+          return (
+            <Link
+              href={href}
+              className="flex items-center gap-3 w-full mb-6 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 px-4 py-4 shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-transform"
+            >
+              <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20">
+                <span className="absolute h-full w-full rounded-full bg-white/30 animate-ping" />
+                <Megaphone size={16} className="text-white relative z-10" />
+              </span>
+              <div className="flex-1 min-w-0">
+                {count > 0 ? (
+                  <>
+                    <p className="text-[10px] font-poppins-bold text-white/70 uppercase tracking-widest mb-0.5">
+                      {count} new vacanc{count === 1 ? 'y' : 'ies'}{location ? ` near ${location}` : ''}
+                    </p>
+                    <p className="text-sm font-poppins-bold text-white truncate">
+                      {v.apartmentType} available · {v.city}, {v.state}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[10px] font-poppins-bold text-white/70 uppercase tracking-widest mb-0.5">
+                      New vacancies posted daily
+                    </p>
+                    <p className="text-sm font-poppins-bold text-white">
+                      Browse available apartments near you
+                    </p>
+                  </>
+                )}
+              </div>
+              <ChevronRight size={18} className="text-white/70 shrink-0" />
+            </Link>
+          )
+        })()}
 
         {/* ── Updates strip ───────────────────────────────────────────────── */}
         {hasUpdates && (
@@ -1022,12 +1034,105 @@ const Dashboard: React.FC = () => {
           </button>
         </div>
 
+        {/* ── Vacancy alert section (once, user-level) ─────────────────────── */}
+        {currentUser.listings.some(l => l.listingType !== 'SEEKING') && (
+          <div className="mb-8">
+            {myVacancies.length > 0 ? (
+              <div className="space-y-3">
+                {myVacancies.map((v) => (
+                  <div
+                    key={v.id}
+                    className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">
+                          Vacancy Alert · Active
+                        </p>
+                        <p className="text-sm font-poppins-bold text-slate-800">
+                          {v.apartmentType} in{' '}
+                          {[v.area, v.city, v.state].filter(Boolean).join(', ')}
+                        </p>
+                        {v.features.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {v.features.map((f) => (
+                              <span
+                                key={f}
+                                className="text-[10px] bg-white border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded-md font-poppins-medium"
+                              >
+                                {f}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const url = `${window.location.origin}/vacancy/${v.id}`
+                            if (navigator.share) {
+                              try { await navigator.share({ title: 'Vacancy Alert — TenantSwap', url }) } catch { /* cancelled */ }
+                            } else {
+                              await navigator.clipboard.writeText(url)
+                              setCopiedVacancyId(v.id)
+                              setTimeout(() => setCopiedVacancyId(null), 2000)
+                            }
+                            void Client.post(`/vacancy/${v.id}/share`, {}, { Authorization: `Bearer ${localStorage.getItem('JWT_TOKEN')}` }).catch(() => undefined)
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-emerald-700 transition-all hover:bg-emerald-100 whitespace-nowrap"
+                        >
+                          {copiedVacancyId === v.id ? <><Copy size={11} /> Copied!</> : <><Share2 size={11} /> Share</>}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const token = localStorage.getItem('JWT_TOKEN')
+                            await Client.delete(`/vacancy/${v.id}`, undefined, { Authorization: `Bearer ${token}` })
+                            await readVacancies()
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-red-500 transition-all hover:bg-red-50 whitespace-nowrap"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setVacancyListing(currentUser.listings.find(l => l.listingType !== 'SEEKING') ?? null)}
+                className="w-full flex items-center justify-between gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-3 text-left transition-all hover:border-emerald-200 hover:bg-emerald-50/40 group"
+              >
+                <div>
+                  <p className="text-sm font-poppins-bold text-slate-600 group-hover:text-emerald-700">
+                    Know of a vacant apartment nearby?
+                  </p>
+                  <p className="text-xs font-poppins-regular text-slate-400 mt-0.5">
+                    Share a vacancy alert — help others in your area find a home.
+                  </p>
+                </div>
+                <Bell size={16} className="text-slate-300 group-hover:text-emerald-500 shrink-0 transition-colors" />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* ── Listings ────────────────────────────────────────────────────── */}
-        <div className="space-y-10">
+        <div className="space-y-0">
           {currentUser.listings.map((listing, listingIndex) => (
             <div key={listing.id}>
+              {listingIndex > 0 && (
+                <div className="flex items-center gap-3 my-8">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-[10px] font-poppins-bold text-slate-300 uppercase tracking-widest">Listing {listingIndex + 1}</span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+              )}
               {/* Compact listing card */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-5">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -1089,151 +1194,26 @@ const Dashboard: React.FC = () => {
                     <Edit2 size={12} /> Edit
                   </button>
                 </div>
+                {/* Activity signals — inside the card */}
+                {(listing.viewCount > 0 || (demandByCity[listing.desiredCity] ?? 0) > 0) && (
+                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-slate-100">
+                    {listing.viewCount > 0 && (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-poppins-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                        <Search size={11} className="text-slate-400" />
+                        Seen {listing.viewCount}{' '}{listing.viewCount === 1 ? 'time' : 'times'}
+                      </span>
+                    )}
+                    {(demandByCity[listing.desiredCity] ?? 0) > 0 && (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-poppins-medium text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
+                        <Bell size={11} className="text-emerald-500" />
+                        {demandByCity[listing.desiredCity]} active{' '}
+                        {demandByCity[listing.desiredCity] === 1 ? 'seeker' : 'seekers'}{' '}
+                        in {listing.desiredCity}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
-
-              {/* Activity signals */}
-              {(listing.viewCount > 0 || demandByCity[listing.desiredCity]) && (
-                <div className="flex flex-wrap gap-2 mb-3 -mt-2">
-                  {listing.viewCount > 0 && (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-poppins-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                      <Search size={11} className="text-slate-400" />
-                      Seen {listing.viewCount}{' '}
-                      {listing.viewCount === 1 ? 'time' : 'times'}
-                    </span>
-                  )}
-                  {(demandByCity[listing.desiredCity] ?? 0) > 0 && (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-poppins-medium text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
-                      <Bell size={11} className="text-emerald-500" />
-                      {demandByCity[listing.desiredCity]} active{' '}
-                      {demandByCity[listing.desiredCity] === 1
-                        ? 'seeker'
-                        : 'seekers'}{' '}
-                      in {listing.desiredCity}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Vacancy alert prompt — SWAP listings only */}
-              {listing.listingType !== 'SEEKING' && (
-                <div className="mb-5">
-                  {myVacancies.length > 0 ? (
-                    <div className="space-y-3">
-                      {myVacancies.map((v) => (
-                        <div
-                          key={v.id}
-                          className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[10px] text-emerald-600 font-poppins-bold uppercase tracking-widest mb-1">
-                                Vacancy Alert · Active
-                              </p>
-                              <p className="text-sm font-poppins-bold text-slate-800">
-                                {v.apartmentType} in{' '}
-                                {[v.area, v.city, v.state]
-                                  .filter(Boolean)
-                                  .join(', ')}
-                              </p>
-                              {v.features.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 mt-2">
-                                  {v.features.map((f) => (
-                                    <span
-                                      key={f}
-                                      className="text-[10px] bg-white border border-emerald-200 text-emerald-700 px-2 py-0.5 rounded-md font-poppins-medium"
-                                    >
-                                      {f}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const url = `${window.location.origin}/vacancy/${v.id}`
-                                  if (navigator.share) {
-                                    try {
-                                      await navigator.share({
-                                        title: 'Vacancy Alert — TenantSwap',
-                                        url,
-                                      })
-                                    } catch {
-                                      /* cancelled */
-                                    }
-                                  } else {
-                                    await navigator.clipboard.writeText(url)
-                                    setCopiedVacancyId(v.id)
-                                    setTimeout(
-                                      () => setCopiedVacancyId(null),
-                                      2000
-                                    )
-                                  }
-                                  void Client.post(
-                                    `/vacancy/${v.id}/share`,
-                                    {},
-                                    {
-                                      Authorization: `Bearer ${localStorage.getItem('JWT_TOKEN')}`,
-                                    }
-                                  ).catch(() => undefined)
-                                }}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-emerald-700 transition-all hover:bg-emerald-100 whitespace-nowrap"
-                              >
-                                {copiedVacancyId === v.id ? (
-                                  <>
-                                    <Copy size={11} /> Copied!
-                                  </>
-                                ) : (
-                                  <>
-                                    <Share2 size={11} /> Share
-                                  </>
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  const token =
-                                    localStorage.getItem('JWT_TOKEN')
-                                  await Client.delete(
-                                    `/vacancy/${v.id}`,
-                                    undefined,
-                                    { Authorization: `Bearer ${token}` }
-                                  )
-                                  await readVacancies()
-                                }}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-red-500 transition-all hover:bg-red-50 whitespace-nowrap"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setVacancyListing(listing)}
-                      className="w-full flex items-center justify-between gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-3 text-left transition-all hover:border-emerald-200 hover:bg-emerald-50/40 group"
-                    >
-                      <div>
-                        <p className="text-sm font-poppins-bold text-slate-600 group-hover:text-emerald-700">
-                          Know of a vacant apartment nearby?
-                        </p>
-                        <p className="text-xs font-poppins-regular text-slate-400 mt-0.5">
-                          Share a vacancy alert — help others in your area find
-                          a home.
-                        </p>
-                      </div>
-                      <Bell
-                        size={16}
-                        className="text-slate-300 group-hover:text-emerald-500 shrink-0 transition-colors"
-                      />
-                    </button>
-                  )}
-                </div>
-              )}
 
               {/* Matches or seeker placeholder */}
               {listing.listingType === 'SEEKING' ? (
@@ -1249,25 +1229,70 @@ const Dashboard: React.FC = () => {
                 </div>
               ) : listing.matches.length > 0 ? (
                 <>
-                  <p className="text-xs font-poppins-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                    Potential Matches
-                    <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-poppins-medium normal-case tracking-normal">
-                      {listing.matchCount}
-                    </span>
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {listing.matches.map((match) => (
-                      <MatchCard
-                        key={match.id}
-                        match={match}
-                        relatedRequest={outgoingRequestByListingId.get(
-                          match.targetListing.id
+                  {(() => {
+                    const strongMatches = listing.matches.filter(m => m.totalScore >= 75)
+                    const closeMatches = listing.matches.filter(m => m.totalScore < 75)
+                    return (
+                      <>
+                        {strongMatches.length > 0 && (
+                          <>
+                            <p className="text-xs font-poppins-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                              Potential Matches
+                              <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-poppins-medium normal-case tracking-normal">
+                                {strongMatches.length}
+                              </span>
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                              {strongMatches.map((match) => (
+                                <MatchCard
+                                  key={match.id}
+                                  match={match}
+                                  relatedRequest={outgoingRequestByListingId.get(match.targetListing.id)}
+                                  onRequestAgain={handleConnect}
+                                  setSelectedMatch={setSelectedMatch}
+                                />
+                              ))}
+                            </div>
+                          </>
                         )}
-                        onRequestAgain={handleConnect}
-                        setSelectedMatch={setSelectedMatch}
-                      />
-                    ))}
-                  </div>
+                        {closeMatches.length > 0 && (
+                          <>
+                            <p className="text-xs font-poppins-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                              Close but not quite
+                              <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-poppins-medium normal-case tracking-normal">
+                                {closeMatches.length}
+                              </span>
+                            </p>
+                            <div className="space-y-2">
+                              {closeMatches.map((match) => (
+                                <MatchCard
+                                  key={match.id}
+                                  match={match}
+                                  variant="close"
+                                  relatedRequest={outgoingRequestByListingId.get(match.targetListing.id)}
+                                  onRequestAgain={handleConnect}
+                                  setSelectedMatch={setSelectedMatch}
+                                />
+                              ))}
+                            </div>
+                          </>
+                        )}
+                        {/* Still searching — shown when no strong matches exist */}
+                        {strongMatches.length === 0 && (
+                          <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center mt-4">
+                            <div className="relative w-10 h-10 mx-auto mb-3">
+                              <Search size={28} className="text-slate-300 absolute inset-0 m-auto" />
+                              <span className="absolute inset-0 rounded-full border-2 border-slate-200 border-t-emerald-400 animate-spin" />
+                            </div>
+                            <p className="text-sm font-poppins-bold text-slate-400">Still searching for an exact match</p>
+                            <p className="text-xs text-slate-300 font-poppins-regular mt-1">
+                              We&apos;ll notify you the moment someone aligns perfectly.
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
                 </>
               ) : (
                 <>
@@ -1292,7 +1317,7 @@ const Dashboard: React.FC = () => {
                     <div className="mt-4">
                       <p className="text-xs font-poppins-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
                         <TrendingUp size={12} className="text-amber-400" />
-                        Close — but not quite
+                        Almost Matched
                       </p>
                       <div className="space-y-2">
                         {listing.nearMisses.map((nm: NearMiss) => {
@@ -1338,9 +1363,6 @@ const Dashboard: React.FC = () => {
                 </>
               )}
 
-              {listingIndex < currentUser.listings.length - 1 && (
-                <div className="border-b border-slate-100 mt-10" />
-              )}
             </div>
           ))}
         </div>

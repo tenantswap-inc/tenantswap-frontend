@@ -10,6 +10,7 @@ interface Props {
   relatedRequest?: UserSwapRequest
   onRequestAgain: (targetListingId: string) => void
   setSelectedMatch: (match: MatchCandidate | null) => void
+  variant?: 'default' | 'close'
 }
 
 function formatDate(dateStr: string | null): string {
@@ -50,7 +51,7 @@ const REQUEST_STATUS_STYLES: Record<UserSwapRequest['status'], { label: string; 
   },
 }
 
-const MatchCard: React.FC<Props> = ({ match, relatedRequest, onRequestAgain, setSelectedMatch }) => {
+const MatchCard: React.FC<Props> = ({ match, relatedRequest, onRequestAgain, setSelectedMatch, variant = 'default' }) => {
   const { targetListing: t, totalScore } = match
   const [showContact, setShowContact] = useState(false)
 
@@ -61,6 +62,43 @@ const MatchCard: React.FC<Props> = ({ match, relatedRequest, onRequestAgain, set
   const canViewContact = relatedRequest?.status === 'CONTACT_APPROVED' && !!relatedRequest.owner.phone
   const canRequestAgain = relatedRequest?.status === 'DECLINED'
 
+  // ── Compact "close but not quite" row ──────────────────────────────────────
+  if (variant === 'close') {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, x: -6 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
+        className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"
+      >
+        <span className="text-xs font-poppins-bold text-slate-400 tabular-nums w-8 shrink-0">
+          {totalScore}%
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-poppins-bold text-slate-600 truncate">
+            {t.currentType} in {t.currentCity}
+          </p>
+          <p className="text-xs text-slate-400 font-poppins-regular truncate">
+            ₦{t.currentRent.toLocaleString()} / yr · Wants {t.desiredType} in {t.desiredCity}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            const token = localStorage.getItem('JWT_TOKEN')
+            if (token) void Client.post(`/listings/${t.id}/view`, {}, { Authorization: `Bearer ${token}` }).catch(() => undefined)
+            setSelectedMatch(match)
+          }}
+          className="shrink-0 text-xs font-poppins-bold text-slate-400 hover:text-emerald-600 transition-colors"
+        >
+          View
+        </button>
+      </motion.div>
+    )
+  }
+
+  // ── Full potential match card ───────────────────────────────────────────────
   return (
     <motion.div
       layout
@@ -125,6 +163,10 @@ const MatchCard: React.FC<Props> = ({ match, relatedRequest, onRequestAgain, set
             <BadgeCheck size={11} className="shrink-0" /> Available {formatDate(t.currentAvailableOn)}
           </p>
         )}
+        <p className="flex items-center gap-1 text-xs font-poppins-medium text-slate-400 pt-1 border-t border-slate-100">
+          <ArrowRight size={11} className="shrink-0" />
+          Wants: {t.desiredType} in {t.desiredCity}
+        </p>
       </div>
 
       {canViewContact && (
