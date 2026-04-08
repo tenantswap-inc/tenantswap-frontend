@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { MatchCandidate, UserSwapRequest } from '@/shared/types'
-import { TrendingUp, ArrowRight, MapPin, BadgeCheck, Phone, UserRound, RotateCcw } from 'lucide-react'
+import { TrendingUp, ArrowRight, MapPin, BadgeCheck, Phone, UserRound, RotateCcw, Flag } from 'lucide-react'
 import posthog from 'posthog-js'
 import { Client } from '@/shared/utils/ApiClient'
+import ReportModal from './ReportModal'
 
 interface Props {
   match: MatchCandidate
@@ -54,6 +55,7 @@ const REQUEST_STATUS_STYLES: Record<UserSwapRequest['status'], { label: string; 
 const MatchCard: React.FC<Props> = ({ match, relatedRequest, onRequestAgain, setSelectedMatch, variant = 'default' }) => {
   const { targetListing: t, totalScore } = match
   const [showContact, setShowContact] = useState(false)
+  const [showReport, setShowReport] = useState(false)
 
   if (t.status !== 'ACTIVE') {
     return null
@@ -77,10 +79,10 @@ const MatchCard: React.FC<Props> = ({ match, relatedRequest, onRequestAgain, set
         </span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-poppins-bold text-slate-600 truncate">
-            {t.currentType} in {t.currentCity}
+            {t.currentType} in {t.currentState}
           </p>
           <p className="text-xs text-slate-400 font-poppins-regular truncate">
-            ₦{t.currentRent.toLocaleString()} / yr · Wants {t.desiredType} in {t.desiredCity}
+            ₦{t.currentRent.toLocaleString()} / yr · Wants {t.desiredType} in {t.desiredState}
           </p>
         </div>
         <button
@@ -153,7 +155,7 @@ const MatchCard: React.FC<Props> = ({ match, relatedRequest, onRequestAgain, set
       <div className="space-y-2">
         <p className="flex items-center gap-1.5 text-sm font-poppins-bold text-slate-800">
           <MapPin size={13} className="shrink-0 text-emerald-500" />
-          <span>{t.currentType} in {t.currentCity}</span>
+          <span>{t.currentType} in {t.currentState}</span>
         </p>
         <p className="text-xs font-poppins-regular text-slate-500">
           Rent: ₦{t.currentRent.toLocaleString()} / yr
@@ -244,6 +246,26 @@ const MatchCard: React.FC<Props> = ({ match, relatedRequest, onRequestAgain, set
           </div>
         </div>
       )}
+
+      {/* Report button */}
+      <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setShowReport(true)}
+          className="inline-flex items-center gap-1 text-[11px] font-poppins-medium text-slate-300 hover:text-red-400 transition-colors"
+        >
+          <Flag size={11} /> Report
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {showReport && (
+          <ReportModal
+            reportedUserId={t.userId}
+            onClose={() => setShowReport(false)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

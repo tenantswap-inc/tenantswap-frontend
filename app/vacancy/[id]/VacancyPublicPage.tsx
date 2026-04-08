@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle, Copy, Home, Loader2, MapPin, Share2, UserCircle2, Zap } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { CheckCircle, Copy, Flag, Home, Loader2, MapPin, Share2, UserCircle2, Zap } from 'lucide-react';
 import { useToken } from '@/shared/hooks/useToken';
 import { Client } from '@/shared/utils/ApiClient';
+import ReportModal from '@/components/ReportModal';
 
 interface VacancyData {
   id: string;
@@ -34,6 +36,7 @@ export default function VacancyPublicPage({ vacancy, vacancyId }: Props) {
   const [connecting, setConnecting] = useState(false);
   const [connectStatus, setConnectStatus] = useState<'idle' | 'success' | 'no_listing' | 'already' | 'error'>('idle');
   const [connectErrorMsg, setConnectErrorMsg] = useState('');
+  const [showReport, setShowReport] = useState(false);
 
   // Restore previous connect status from localStorage so users can't re-send after navigating back
   useEffect(() => {
@@ -274,7 +277,27 @@ export default function VacancyPublicPage({ vacancy, vacancyId }: Props) {
         <p className="mt-6 text-center text-xs font-poppins-regular text-slate-400">
           © {new Date().getFullYear()} TenantSwap Nigeria · Zero Agent Fees · Built for Tenants
         </p>
+
+        {/* Report link */}
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => setShowReport(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-poppins-medium text-slate-300 hover:text-red-400 transition-colors"
+          >
+            <Flag size={12} /> Report this listing
+          </button>
+        </div>
       </main>
+
+      <AnimatePresence>
+        {showReport && vacancy && (
+          <ReportModal
+            reportedUserId={vacancy.user.id}
+            reportedName={vacancy.user.fullName}
+            onClose={() => setShowReport(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
