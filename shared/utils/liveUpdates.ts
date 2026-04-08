@@ -235,11 +235,11 @@ export function connectLiveUpdates(token: string, handlers: LiveUpdateHandlers) 
           await handlers.refreshUnreadCount?.()
           break
         case 'interests.updated':
-          emitLiveUpdateCue('request')
           if (suppressInterestSound || eventData?.notificationType === 'INTEREST_SENT') {
             suppressInterestSound = false
           } else {
-            playLiveUpdateSound('request')
+            // Only emit the cue — the dashboard owns all request sound logic
+            emitLiveUpdateCue('request')
           }
           await handlers.refreshInterests?.()
           break

@@ -8,8 +8,22 @@ const apiClient: AxiosInstance = axios.create({
     "Content-Type": "application/json",
   },
   validateStatus: () => true,
-  timeout: 15000, // 15 s — prevents requests hanging indefinitely
+  timeout: 8000, // 8s — fail fast on slow connections rather than hanging
 });
+
+// Retry once on network errors (timeout, no response) with a 1s delay
+apiClient.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const config = error.config;
+    if (config?._retried || !error.isAxiosError) return Promise.reject(error);
+    const isNetworkOrTimeout = !error.response || error.code === 'ECONNABORTED';
+    if (!isNetworkOrTimeout) return Promise.reject(error);
+    config._retried = true;
+    await new Promise((r) => setTimeout(r, 1000));
+    return apiClient(config);
+  }
+);
 
 export const Client = {
   get: async <T = any>(

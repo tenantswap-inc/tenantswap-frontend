@@ -19,6 +19,7 @@ interface RequestListModalProps {
   onApprove: (interestId: string) => void
   onDecline: (interestId: string) => void
   processingInterestId: string | null
+  isPremium: boolean
 }
 
 const RequestListModal: React.FC<RequestListModalProps> = ({
@@ -33,7 +34,12 @@ const RequestListModal: React.FC<RequestListModalProps> = ({
   onApprove,
   onDecline,
   processingInterestId,
+  isPremium,
 }) => {
+  // Outgoing approved comes first in the combined contact list (same order as /contacts page)
+  const approvedOutgoingCount = outgoingRequests.filter((r) => r.status === 'CONTACT_APPROVED').length
+  // Incoming approved offset = how many outgoing approved are before it
+  const incomingApprovedOffset = approvedOutgoingCount
   return (
     <AnimatePresence>
       {open ? (
@@ -132,9 +138,16 @@ const RequestListModal: React.FC<RequestListModalProps> = ({
                   processingInterestId={processingInterestId}
                   onApprove={onApprove}
                   onDecline={onDecline}
+                  isPremium={isPremium}
+                  approvedContactsOffset={incomingApprovedOffset}
                 />
               ) : (
-                <RequestsList requests={outgoingRequests} totalRequests={outgoingTotalRequests} />
+                <RequestsList
+                  requests={outgoingRequests}
+                  totalRequests={outgoingTotalRequests}
+                  isPremium={isPremium}
+                  approvedContactsOffset={0}
+                />
               )}
             </motion.div>
           </motion.div>

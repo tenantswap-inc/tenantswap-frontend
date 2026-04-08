@@ -4,7 +4,7 @@ import Link from 'next/link'
 import {
   IncomingInterestListing,
   MatchCandidate,
-  NearMiss,
+
   User,
   UserSwapListing,
   UserSwapRequest,
@@ -18,7 +18,7 @@ import {
   Bell,
   Plus,
   Phone,
-  TrendingUp,
+
   UserCheck,
   AlertCircle,
   FileUp,
@@ -27,6 +27,7 @@ import {
   Copy,
   ChevronRight,
   Megaphone,
+  WifiOff,
 } from 'lucide-react'
 import { Client } from '@/shared/utils/ApiClient'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -81,6 +82,7 @@ const STATUS_COLORS: Record<UserSwapListing['status'], string> = {
 const Dashboard: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [hydrated, setHydrated] = useState(false)
+  const [isOnline, setIsOnline] = useState(true)
   const [updateListing, setUpdateListing] = useState<UserSwapListing | null>(
     null
   )
@@ -130,6 +132,7 @@ const Dashboard: React.FC = () => {
     null
   )
   const requestSoundCountRef = useRef(0)
+  const openRequestListRef = useRef(false)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -179,6 +182,21 @@ const Dashboard: React.FC = () => {
       return
     }
 
+    // Show cached user immediately so the dashboard renders without waiting for the network
+    const USER_CACHE_KEY = 'ts_user_cache'
+    const USER_CACHE_TTL = 60_000 // 60 seconds
+    try {
+      const cached = localStorage.getItem(USER_CACHE_KEY)
+      if (cached) {
+        const { data, ts } = JSON.parse(cached)
+        if (Date.now() - ts < USER_CACHE_TTL) {
+          setCurrentUser(data)
+          void readDemand(data?.listings ?? [])
+          void readRecentVacancies(data?.listings?.[0]?.desiredCity, data?.listings?.[0]?.desiredState)
+        }
+      }
+    } catch { /* ignore bad cache */ }
+
     try {
       const response = await Client.get(
         '/users/me',
@@ -189,6 +207,8 @@ const Dashboard: React.FC = () => {
       if (response.status === 200) {
         const user = response.data.data.user
         setCurrentUser(user)
+        // Update cache
+        try { localStorage.setItem(USER_CACHE_KEY, JSON.stringify({ data: user, ts: Date.now() })) } catch { /* ignore */ }
         // Kick off demand fetch with the listings we already have — no second /users/me call
         void readDemand(user?.listings ?? [])
         // Fetch vacancies near user's desired location
@@ -478,6 +498,18 @@ const Dashboard: React.FC = () => {
   }
 
   useEffect(() => {
+    const onOnline = () => setIsOnline(true)
+    const onOffline = () => setIsOnline(false)
+    setIsOnline(navigator.onLine)
+    window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
+    return () => {
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('offline', onOffline)
+    }
+  }, [])
+
+  useEffect(() => {
     // Fire all independent fetches in parallel — readCurrentUser also triggers readDemand internally
     Promise.all([readCurrentUser(), readRequests(), readVacancies()]).finally(
       () => setHydrated(true)
@@ -528,18 +560,29 @@ const Dashboard: React.FC = () => {
         requestAttentionTimeoutRef.current = null
       }, 2400)
 
+      // Don't make any sound if the user already has the request list open
+      if (openRequestListRef.current) return
+
+      // Play immediately, then remind twice more (every 8s) and stop
+      playLiveUpdateSound('request')
+
       if (requestSoundIntervalRef.current)
         clearInterval(requestSoundIntervalRef.current)
       requestSoundCountRef.current = 0
       requestSoundIntervalRef.current = setInterval(() => {
+        if (openRequestListRef.current) {
+          clearInterval(requestSoundIntervalRef.current!)
+          requestSoundIntervalRef.current = null
+          return
+        }
         requestSoundCountRef.current += 1
-        if (requestSoundCountRef.current > 3) {
+        if (requestSoundCountRef.current > 2) {
           clearInterval(requestSoundIntervalRef.current!)
           requestSoundIntervalRef.current = null
           return
         }
         playLiveUpdateSound('request')
-      }, 4000)
+      }, 8000)
     }
 
     window.addEventListener(
@@ -558,7 +601,9 @@ const Dashboard: React.FC = () => {
     }
   }, [])
 
+  // Keep ref in sync so the sound handler always reads the latest value
   useEffect(() => {
+    openRequestListRef.current = openRequestList
     if (openRequestList && requestSoundIntervalRef.current) {
       clearInterval(requestSoundIntervalRef.current)
       requestSoundIntervalRef.current = null
@@ -725,6 +770,13 @@ const Dashboard: React.FC = () => {
 
   return (
     <AuthLayout>
+      {/* Offline banner */}
+      {!isOnline && (
+        <div className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-slate-800 px-4 py-2.5 text-xs font-poppins-bold text-white">
+          <WifiOff size={13} /> No internet connection — some data may be outdated
+        </div>
+      )}
+
       {/* Success toast */}
       {successMsg && (
         <div className={toastClass}>
@@ -777,6 +829,7 @@ const Dashboard: React.FC = () => {
         onApprove={handleApproveInterest}
         onDecline={handleDeclineInterest}
         processingInterestId={processingInterestId}
+        isPremium={currentUser?.subscriptionStatus === 'ACTIVE'}
       />
       <VacancyAlertModal
         open={!!vacancyListing}
@@ -963,103 +1016,23 @@ const Dashboard: React.FC = () => {
                 </button>
               </div>
             ))}
-            {allApprovedOutgoing.map((req, idx) => {
-              // First FREE_CONTACT_LIMIT contacts are always visible.
-              // Beyond that, locked for non-premium users.
-              const isLocked = !isPremium && idx >= FREE_CONTACT_LIMIT
-              if (isLocked) {
-                return (
-                  <div
-                    key={req.interestId}
-                    className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
-                  >
-                    <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        className="text-slate-400"
-                      >
-                        <rect x="3" y="11" width="18" height="11" rx="2" />
-                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                      </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-400 font-poppins-bold uppercase tracking-widest">
-                        Contact Locked
-                      </p>
-                      <p className="text-sm font-poppins-bold text-slate-400">
-                        •••••••••
-                      </p>
-                    </div>
-                    <span className="shrink-0 inline-flex items-center rounded-full bg-amber-500 px-3 py-1.5 text-xs font-poppins-bold text-white whitespace-nowrap">
-                      Upgrade
-                    </span>
-                  </div>
-                )
-              }
-              return (
-                <div
-                  key={req.interestId}
-                  className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3"
-                >
-                  <UserCheck size={14} className="text-blue-600 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-blue-500 font-poppins-bold uppercase tracking-widest">
-                      Contact Approved
-                    </p>
-                    <p className="text-sm font-poppins-bold text-slate-800">
-                      {req.owner.fullName}
-                    </p>
-                    {req.owner.phone && (
-                      <p className="text-xs text-slate-500 font-poppins-regular">
-                        {req.owner.phone}
-                      </p>
-                    )}
-                  </div>
-                  {req.owner.phone && (
-                    <a
-                      href={`tel:${req.owner.phone}`}
-                      className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-blue-600 transition-all hover:bg-blue-50 whitespace-nowrap"
-                    >
-                      <Phone size={11} /> Call
-                    </a>
-                  )}
-                </div>
-              )
-            })}
-            {allApprovedIncoming.map((req) => (
-              <div
-                key={req.interestId}
-                className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3"
+            {(allApprovedOutgoing.length > 0 || allApprovedIncoming.length > 0) && (
+              <Link
+                href="/contacts"
+                className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 active:scale-[0.98] transition-transform"
               >
-                <UserCheck size={14} className="text-blue-600 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-blue-500 font-poppins-bold uppercase tracking-widest">
-                    You approved — their contact
-                  </p>
-                  <p className="text-sm font-poppins-bold text-slate-800">
-                    {req.requester.fullName}
-                  </p>
-                  {req.requester.phone && (
-                    <p className="text-xs text-slate-500 font-poppins-regular">
-                      {req.requester.phone}
-                    </p>
-                  )}
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100">
+                  <UserCheck size={16} className="text-blue-600" />
                 </div>
-                {req.requester.phone && (
-                  <a
-                    href={`tel:${req.requester.phone}`}
-                    className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-blue-600 transition-all hover:bg-blue-50 whitespace-nowrap"
-                  >
-                    <Phone size={11} /> Call
-                  </a>
-                )}
-              </div>
-            ))}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-blue-500 font-poppins-bold uppercase tracking-widest">Approved Contacts</p>
+                  <p className="text-sm font-poppins-bold text-slate-800">
+                    {allApprovedOutgoing.length + allApprovedIncoming.length} contact{allApprovedOutgoing.length + allApprovedIncoming.length !== 1 ? 's' : ''} ready to call
+                  </p>
+                </div>
+                <ChevronRight size={16} className="text-blue-400 shrink-0" />
+              </Link>
+            )}
           </div>
         )}
 
@@ -1210,7 +1183,7 @@ const Dashboard: React.FC = () => {
                       )}
                     </div>
                     <p className="text-xs text-slate-400 font-poppins-regular">
-                      {listing.desiredCity} · ₦
+                      {listing.desiredState}{listing.desiredCity ? `, ${listing.desiredCity}` : ''}{listing.desiredArea ? ` · ${listing.desiredArea}` : ''} · ₦
                       {listing.maxBudget.toLocaleString()} / yr ·{' '}
                       {listing.timeline}
                     </p>
@@ -1369,54 +1342,6 @@ const Dashboard: React.FC = () => {
                     </p>
                   </div>
 
-                  {/* Near-misses */}
-                  {listing.nearMisses?.length > 0 && (
-                    <div className="mt-4">
-                      <p className="text-xs font-poppins-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <TrendingUp size={12} className="text-amber-400" />
-                        Almost Matched
-                      </p>
-                      <div className="space-y-2">
-                        {listing.nearMisses.map((nm: NearMiss) => {
-                          const missLabel =
-                            nm.missReason === 'wrong_type'
-                              ? `You want a ${listing.desiredType} — they have a ${nm.currentType}`
-                              : nm.missReason === 'over_budget'
-                                ? `Their rent (₦${nm.currentRent.toLocaleString()}) is just above your ₦${listing.maxBudget.toLocaleString()} budget`
-                                : `Their apartment in ${nm.currentState} isn't available yet`
-                          return (
-                            <div
-                              key={nm.id}
-                              className="flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3"
-                            >
-                              <TrendingUp
-                                size={14}
-                                className="text-amber-400 mt-0.5 shrink-0"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-poppins-bold text-slate-700">
-                                  Someone in {nm.currentState}
-                                </p>
-                                <p className="text-xs font-poppins-regular text-slate-500 mt-0.5">
-                                  {missLabel}
-                                </p>
-                              </div>
-                              <span className="shrink-0 text-[10px] font-poppins-bold uppercase tracking-widest text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
-                                {nm.missReason === 'wrong_type'
-                                  ? 'Type'
-                                  : nm.missReason === 'over_budget'
-                                    ? 'Budget'
-                                    : 'Timing'}
-                              </span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      <p className="text-[10px] font-poppins-regular text-slate-300 mt-3 text-center">
-                        Update your listing to improve your match rate.
-                      </p>
-                    </div>
-                  )}
                 </>
               )}
 
