@@ -1108,7 +1108,7 @@ const Dashboard: React.FC = () => {
                               setCopiedVacancyId(v.id)
                               setTimeout(() => setCopiedVacancyId(null), 2000)
                             }
-                            void Client.post(`/vacancy/${v.id}/share`, {}, { Authorization: `Bearer ${localStorage.getItem('JWT_TOKEN')}` }).catch(() => undefined)
+                            void Client.post(`/listings/vacancy/${v.id}/track`, { action: 'SHARE' }, { Authorization: `Bearer ${localStorage.getItem('JWT_TOKEN')}` }).catch(() => undefined)
                           }}
                           className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-poppins-bold text-emerald-700 transition-all hover:bg-emerald-100 whitespace-nowrap"
                         >
