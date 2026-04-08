@@ -207,7 +207,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
       }
       setErrors({})
       setAlertMsg('')
-      setStep(2)
+      void handleSubmit()
     }
   }
 
@@ -356,7 +356,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
           <p className="text-slate-500 font-poppins-regular">Make changes to your existing swap request.</p>
         </div>
 
-        <StepHeader current={step} />
+        <StepHeader current={step} steps={['Looking For', 'Leaving From']} />
 
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 min-h-[420px] flex flex-col">
           {step === 0 && (
@@ -592,47 +592,6 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
             </div>
           )}
 
-          {step === 2 && (
-            <div className="flex-1 space-y-6">
-              <div>
-                <h3 className="text-2xl font-poppins-bold text-slate-800 mb-1">Confirm Your Changes</h3>
-                <p className="text-sm text-slate-400 font-poppins-regular">Review your updates before saving.</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
-                  <p className="text-[10px] font-poppins-bold text-emerald-600 uppercase tracking-widest mb-3">Looking For</p>
-                  <p className="font-poppins-bold text-slate-800">{desiredType}</p>
-                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(desiredState, desiredCity, undefined)}</p>
-                  <p className="text-slate-500 font-poppins-regular text-sm">₦{maxBudget.toLocaleString()} / yr</p>
-                  <p className="text-slate-500 font-poppins-regular text-sm">{timeline}</p>
-                </div>
-
-                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-5">
-                  <p className="text-[10px] font-poppins-bold text-slate-500 uppercase tracking-widest mb-3">Leaving From</p>
-                  <p className="font-poppins-bold text-slate-800">{currentType}</p>
-                  <p className="text-slate-500 font-poppins-regular text-sm mt-1">{formatSwapLocation(currentState, currentCity, currentArea)}</p>
-                  <p className="text-slate-500 font-poppins-regular text-sm">
-                    {currentAvailable
-                      ? `Available ${currentAvailableOn ? new Date(currentAvailableOn).toLocaleDateString('en-NG', { dateStyle: 'medium' }) : '—'}`
-                      : 'Not currently available'}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-[10px] font-poppins-bold text-slate-500 uppercase tracking-widest mb-2">Home Features</p>
-                <div className="flex flex-wrap gap-2">
-                  {selectedFeatures.map(f => (
-                    <span key={f} className="text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1.5 rounded-lg font-poppins-medium">
-                      {f}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
           <div className="flex mt-8 pt-6 border-t border-slate-100 justify-between">
             {step > 0 ? (
               <button
@@ -656,7 +615,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
               )
             }
 
-            {step < 2 ? (
+            {step < 1 ? (
               <button
                 type="button"
                 onClick={goNext}
@@ -667,7 +626,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
             ) : (
               <button
                 type="button"
-                onClick={handleSubmit}
+                onClick={goNext}
                 disabled={loading}
                 className="flex items-center gap-2 bg-emerald-600 text-white px-8 py-3 rounded-xl font-poppins-bold cursor-pointer transition-all duration-300 ease-out shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-emerald-600/25 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-lg"
               >

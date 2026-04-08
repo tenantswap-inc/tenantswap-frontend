@@ -35,6 +35,12 @@ export default function VacancyPublicPage({ vacancy, vacancyId }: Props) {
   const [connectStatus, setConnectStatus] = useState<'idle' | 'success' | 'no_listing' | 'already' | 'error'>('idle');
   const [connectErrorMsg, setConnectErrorMsg] = useState('');
 
+  // Restore previous connect status from localStorage so users can't re-send after navigating back
+  useEffect(() => {
+    const stored = localStorage.getItem(`vacancy_connected_${vacancyId}`);
+    if (stored) setConnectStatus(stored as 'success' | 'already');
+  }, [vacancyId]);
+
   useEffect(() => {
     void fetch(`${apiBase}/vacancy/${vacancyId}/click`, { method: 'POST' }).catch(() => undefined);
   }, [vacancyId]);
@@ -69,6 +75,7 @@ export default function VacancyPublicPage({ vacancy, vacancyId }: Props) {
       });
       if (res.status === 200 || res.status === 201) {
         setConnectStatus('success');
+        localStorage.setItem(`vacancy_connected_${vacancyId}`, 'success');
       } else {
         const msg: string = res.data?.message ?? '';
         console.error('Vacancy connect error:', res.status, msg);
@@ -76,6 +83,7 @@ export default function VacancyPublicPage({ vacancy, vacancyId }: Props) {
           setConnectStatus('no_listing');
         } else if (res.status === 409 || msg.toLowerCase().includes('already')) {
           setConnectStatus('already');
+          localStorage.setItem(`vacancy_connected_${vacancyId}`, 'already');
         } else {
           setConnectErrorMsg(msg || `Error ${res.status}`);
           setConnectStatus('error');

@@ -129,6 +129,7 @@ const Dashboard: React.FC = () => {
   const requestSoundIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null
   )
+  const requestSoundCountRef = useRef(0)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -529,7 +530,14 @@ const Dashboard: React.FC = () => {
 
       if (requestSoundIntervalRef.current)
         clearInterval(requestSoundIntervalRef.current)
+      requestSoundCountRef.current = 0
       requestSoundIntervalRef.current = setInterval(() => {
+        requestSoundCountRef.current += 1
+        if (requestSoundCountRef.current > 3) {
+          clearInterval(requestSoundIntervalRef.current!)
+          requestSoundIntervalRef.current = null
+          return
+        }
         playLiveUpdateSound('request')
       }, 4000)
     }
@@ -1078,6 +1086,16 @@ const Dashboard: React.FC = () => {
           <div className="mb-8">
             {myVacancies.length > 0 ? (
               <div className="space-y-3">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-poppins-bold text-slate-400 uppercase tracking-widest">Your Vacancy Alerts</p>
+                  <button
+                    type="button"
+                    onClick={() => setVacancyListing(currentUser.listings.find(l => l.listingType !== 'SEEKING') ?? null)}
+                    className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-poppins-bold text-emerald-700 hover:bg-emerald-50 transition-all"
+                  >
+                    <Plus size={11} /> Add Vacancy
+                  </button>
+                </div>
                 {myVacancies.map((v) => (
                   <div
                     key={v.id}
@@ -1365,7 +1383,7 @@ const Dashboard: React.FC = () => {
                               ? `You want a ${listing.desiredType} — they have a ${nm.currentType}`
                               : nm.missReason === 'over_budget'
                                 ? `Their rent (₦${nm.currentRent.toLocaleString()}) is just above your ₦${listing.maxBudget.toLocaleString()} budget`
-                                : `Their apartment in ${nm.currentCity} isn't available yet`
+                                : `Their apartment in ${nm.currentState} isn't available yet`
                           return (
                             <div
                               key={nm.id}
@@ -1377,7 +1395,7 @@ const Dashboard: React.FC = () => {
                               />
                               <div className="min-w-0 flex-1">
                                 <p className="text-sm font-poppins-bold text-slate-700">
-                                  Someone in {nm.currentCity}
+                                  Someone in {nm.currentState}
                                 </p>
                                 <p className="text-xs font-poppins-regular text-slate-500 mt-0.5">
                                   {missLabel}
