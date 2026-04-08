@@ -1,10 +1,25 @@
 'use client'
 import { useState, useEffect } from 'react'
 
-// Read token synchronously on first render (avoids the extra render cycle)
+function isJwtExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now()
+  } catch {
+    return true // unparseable token = treat as expired
+  }
+}
+
+// Read token synchronously on first render, evict if expired
 function getStoredToken(): string | null {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('JWT_TOKEN')
+  const token = localStorage.getItem('JWT_TOKEN')
+  if (!token) return null
+  if (isJwtExpired(token)) {
+    localStorage.removeItem('JWT_TOKEN')
+    return null
+  }
+  return token
 }
 
 export const useToken = () => {
@@ -14,7 +29,12 @@ export const useToken = () => {
   useEffect(() => {
     // Sync in case token changed since first render
     const stored = localStorage.getItem('JWT_TOKEN')
-    setToken(stored)
+    if (stored && isJwtExpired(stored)) {
+      localStorage.removeItem('JWT_TOKEN')
+      setToken(null)
+    } else {
+      setToken(stored)
+    }
     setReady(true)
   }, [])
 

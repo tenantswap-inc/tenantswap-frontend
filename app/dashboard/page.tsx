@@ -37,6 +37,7 @@ import { Alert } from '@heroui/alert'
 import MatchModal from '@/components/MatchingModal'
 import MatchCard from '@/components/MatchCard'
 import RequestListModal from '@/components/RequestListModal'
+import ListingPreviewModal from '@/components/ListingPreviewModal'
 import VacancyAlertModal from '@/components/VacancyAlertModal'
 import CaretakerModal from '@/components/CaretakerModal'
 import {
@@ -86,6 +87,7 @@ const Dashboard: React.FC = () => {
   const [updateListing, setUpdateListing] = useState<UserSwapListing | null>(
     null
   )
+  const [previewListing, setPreviewListing] = useState<UserSwapListing | null>(null)
   const [selectedMatch, setSelectedMatch] = useState<MatchCandidate | null>(
     null
   )
@@ -700,7 +702,18 @@ const Dashboard: React.FC = () => {
     : null
 
   // ── Empty state ────────────────────────────────────────────────────────────
+  // If there's no token, a redirect to /login is already in flight — keep
+  // showing the spinner so the user never sees the setup page as a flash.
   if (!currentUser || !activeListing) {
+    if (typeof window !== 'undefined' && !localStorage.getItem('JWT_TOKEN')) {
+      return (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-primary-green">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/assets/TenantSwap Logo Monochrome.svg" alt="TenantSwap" className="w-20 h-20 animate-pulse" />
+          <div className="w-10 h-10 rounded-full border-[3px] border-white/25 border-t-white animate-spin" />
+        </div>
+      )
+    }
     return (
       <AuthLayout>
         <div className="max-w-4xl mx-auto py-12 sm:py-20 px-4 text-center">
@@ -830,6 +843,11 @@ const Dashboard: React.FC = () => {
         onDecline={handleDeclineInterest}
         processingInterestId={processingInterestId}
         isPremium={currentUser?.subscriptionStatus === 'ACTIVE'}
+      />
+      <ListingPreviewModal
+        listing={previewListing}
+        onClose={() => setPreviewListing(null)}
+        onEdit={() => { if (previewListing) setUpdateListing(previewListing) }}
       />
       <VacancyAlertModal
         open={!!vacancyListing}
@@ -1162,7 +1180,13 @@ const Dashboard: React.FC = () => {
                 </div>
               )}
               {/* Compact listing card */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4">
+              <div
+                className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 cursor-pointer active:scale-[0.99] transition-transform"
+                onClick={() => setPreviewListing(listing)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && setPreviewListing(listing)}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -1218,7 +1242,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setUpdateListing(listing)}
+                    onClick={(e) => { e.stopPropagation(); setUpdateListing(listing) }}
                     className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-poppins-bold text-slate-500 hover:bg-slate-50 transition-all shrink-0"
                   >
                     <Edit2 size={12} /> Edit

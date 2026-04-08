@@ -185,6 +185,7 @@ const Navbar: React.FC = () => {
   const notificationPanelRef = useRef<HTMLDivElement | null>(null)
   const pulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const notificationSoundIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const notificationSoundCountRef = useRef(0)
 
   const visibleNotifications = useMemo(() => notifications.slice(0, 8), [notifications])
 
@@ -221,7 +222,9 @@ const Navbar: React.FC = () => {
       }
 
       if (response.status === 401 || response.status === 403) {
-        setUnreadCount(0)
+        localStorage.removeItem('JWT_TOKEN')
+        window.location.href = '/login'
+        return
       }
     } catch {
       setUnreadCount(0)
@@ -352,7 +355,14 @@ const Navbar: React.FC = () => {
       }, 2400)
 
       if (notificationSoundIntervalRef.current) clearInterval(notificationSoundIntervalRef.current)
+      notificationSoundCountRef.current = 0
       notificationSoundIntervalRef.current = setInterval(() => {
+        notificationSoundCountRef.current += 1
+        if (notificationSoundCountRef.current > 2) {
+          clearInterval(notificationSoundIntervalRef.current!)
+          notificationSoundIntervalRef.current = null
+          return
+        }
         playLiveUpdateSound('notification')
       }, 4000)
     }

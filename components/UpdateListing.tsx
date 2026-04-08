@@ -295,9 +295,9 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
   }
 
   const isAvailableOnStale =
-    listing.currentAvailable === true &&
-    !!listing.currentAvailableOn &&
-    new Date(listing.currentAvailableOn) < new Date()
+    currentAvailable === true &&
+    !!currentAvailableOn &&
+    new Date(currentAvailableOn) < new Date()
 
   const fc = (key: keyof AllErrors, forceHighlight = false) =>
     `w-full p-4 rounded-xl border outline-none transition-all appearance-none bg-no-repeat bg-[right_1rem_center] ${
