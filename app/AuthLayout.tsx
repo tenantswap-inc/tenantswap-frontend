@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react'
 import Navbar from '@/components/Navbar'
+import Footer from '@/components/Footer'
 import { useToken } from '@/shared/hooks/useToken'
 import { connectLiveUpdates } from '@/shared/utils/liveUpdates'
 import { registerPushNotifications } from '@/shared/utils/pushNotifications'
@@ -33,14 +34,7 @@ const App: React.FC<Props> = ({ children }) => {
 
       <main className="flex-grow">{children}</main>
 
-      <footer className="bg-black text-white py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-sm font-poppins-bold">
-            © 2026 TenantSwap Nigeria. Built for Tenants, by Tenants. Zero Agent
-            Fees.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

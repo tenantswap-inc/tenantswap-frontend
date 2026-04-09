@@ -194,8 +194,18 @@ const Register: React.FC = () => {
       }
       if (response.status === 409) {
         setShowOnboarding(false)
-        setErrors({ phone: message ?? 'This phone number is already registered.' })
-        setAlertMsg(message ?? 'This phone number is already registered.')
+        const lower = (message ?? '').toLowerCase()
+        const fieldErrors: Record<string, string> = {}
+        if (lower.includes('email') && lower.includes('phone')) {
+          fieldErrors.email = 'Email already registered.'
+          fieldErrors.phone = 'Phone number already registered.'
+        } else if (lower.includes('email')) {
+          fieldErrors.email = message ?? 'Email already registered.'
+        } else {
+          fieldErrors.phone = message ?? 'Phone number already registered.'
+        }
+        setErrors(fieldErrors)
+        setAlertMsg(message ?? 'Account already exists.')
         return
       }
       if (response.status === 400) {

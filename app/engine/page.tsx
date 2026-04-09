@@ -297,7 +297,9 @@ const Engine: React.FC = () => {
   const [loading, setLoading] = useState(false)
 
   // ── Existing listings (to skip gate for return users) ──────────────────────
-  const [existingListings, setExistingListings] = useState<UserSwapListing[] | null>(null)
+  const [existingListings, setExistingListings] = useState<
+    UserSwapListing[] | null
+  >(null)
 
   const desiredCities = getAllowedSwapCities(desiredState)
   const desiredAreas = getSwapAreasForCity(desiredState, desiredCity)
@@ -323,32 +325,44 @@ const Engine: React.FC = () => {
   // Fetch existing listings once the token is definitively known
   // Wait for tokenReady so we never run with a null token that's just not loaded yet
   useEffect(() => {
-    if (!tokenReady) return  // token not determined yet — keep showing spinner
-    if (!token) { setExistingListings([]); return }  // not logged in
+    if (!tokenReady) return // token not determined yet — keep showing spinner
+    if (!token) {
+      setExistingListings([])
+      return
+    } // not logged in
 
     Client.get<{ data: { user: { listings: UserSwapListing[] } } }>(
-      '/users/me', {}, { Authorization: `Bearer ${token}` }
-    ).then((res) => {
-      const listings: UserSwapListing[] = res.data?.data?.user?.listings ?? []
-      setExistingListings(listings)
+      '/users/me',
+      {},
+      { Authorization: `Bearer ${token}` }
+    )
+      .then((res) => {
+        const listings: UserSwapListing[] = res.data?.data?.user?.listings ?? []
+        setExistingListings(listings)
 
-      if (listings.length > 0) {
-        // Determine mode from most recent non-closed listing, fallback to any
-        const recent = listings.find((l) => l.status !== 'CLOSED') ?? listings[0]
-        if (recent.listingType === 'SWAP') {
-          setListingMode('SWAP')
-        } else {
-          setListingMode('SEEKING')
-          // Pre-select seekerCategory from most recent SEEKING listing
-          const lastCat = listings
-            .filter((l) => l.listingType === 'SEEKING' && l.seekerCategory)
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
-            ?.seekerCategory ?? null
-          if (lastCat) setSeekerCategory(lastCat)
+        if (listings.length > 0) {
+          // Determine mode from most recent non-closed listing, fallback to any
+          const recent =
+            listings.find((l) => l.status !== 'CLOSED') ?? listings[0]
+          if (recent.listingType === 'SWAP') {
+            setListingMode('SWAP')
+          } else {
+            setListingMode('SEEKING')
+            // Pre-select seekerCategory from most recent SEEKING listing
+            const lastCat =
+              listings
+                .filter((l) => l.listingType === 'SEEKING' && l.seekerCategory)
+                .sort(
+                  (a, b) =>
+                    new Date(b.createdAt).getTime() -
+                    new Date(a.createdAt).getTime()
+                )[0]?.seekerCategory ?? null
+            if (lastCat) setSeekerCategory(lastCat)
+          }
         }
-      }
-    }).catch(() => setExistingListings([]))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      })
+      .catch(() => setExistingListings([]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokenReady])
 
   const toggleFeature = (f: string) =>
@@ -541,7 +555,9 @@ const Engine: React.FC = () => {
           desired_type: desiredType,
           max_budget: maxBudget,
           timeline,
-          ...(listingMode === 'SEEKING' ? { seeker_category: seekerCategory } : {}),
+          ...(listingMode === 'SEEKING'
+            ? { seeker_category: seekerCategory }
+            : {}),
         })
       }
 
@@ -568,7 +584,10 @@ const Engine: React.FC = () => {
 
       router.push('/dashboard')
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Unable to reach the server. Please check your connection.'
+      const msg =
+        e instanceof Error
+          ? e.message
+          : 'Unable to reach the server. Please check your connection.'
       console.error('Listing submit error:', e)
       posthog.captureException(e)
       setAlertMsg(msg)
@@ -657,9 +676,16 @@ const Engine: React.FC = () => {
             <div className="w-20 h-20 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-6">
               <Home size={36} className="text-amber-500" />
             </div>
-            <h2 className="text-2xl font-poppins-bold text-slate-900 mb-3">Listing Limit Reached</h2>
+            <h2 className="text-2xl font-poppins-bold text-slate-900 mb-3">
+              Listing Limit Reached
+            </h2>
             <p className="text-slate-500 font-poppins-regular mb-8">
-              You already have <span className="font-poppins-bold text-slate-700">2 listings</span> on TenantSwap. Please close an existing listing before creating a new one.
+              You already have{' '}
+              <span className="font-poppins-bold text-slate-700">
+                2 listings
+              </span>{' '}
+              on TenantSwap. Please close an existing listing before creating a
+              new one.
             </p>
             <button
               type="button"
@@ -727,7 +753,8 @@ const Engine: React.FC = () => {
                       Yes, I have an apartment
                     </p>
                     <p className="text-xs text-slate-500 font-poppins-regular mt-1">
-                      I want to swap my current apartment for one in another location
+                      I want to swap my current apartment for one in another
+                      location
                     </p>
                   </button>
 
@@ -950,7 +977,10 @@ const Engine: React.FC = () => {
                     </label>
                     <select
                       value={desiredCity}
-                      onChange={(e) => { setDesiredCity(e.target.value); setDesiredArea('') }}
+                      onChange={(e) => {
+                        setDesiredCity(e.target.value)
+                        setDesiredArea('')
+                      }}
                       disabled={desiredState === 'No Option'}
                       className={fc('desiredCity')}
                     >
@@ -980,7 +1010,9 @@ const Engine: React.FC = () => {
                       >
                         <option value="">Select area…</option>
                         {desiredAreas.map((area) => (
-                          <option key={area} value={area}>{area}</option>
+                          <option key={area} value={area}>
+                            {area}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -1611,7 +1643,7 @@ const Engine: React.FC = () => {
                       <p className="text-sm text-slate-400 font-poppins-regular">
                         {seekerCategory === 'NYSC'
                           ? 'Upload your NYSC call-up letter or state deployment letter.'
-                          : 'Upload any document that supports your housing request.'}
+                          : 'Upload a workplace verification document that supports your housing request.'}
                       </p>
                     </div>
                     <div className="rounded-full border p-2 shadow-xl shadow-black/20">
