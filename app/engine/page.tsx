@@ -343,6 +343,22 @@ const Engine: React.FC = () => {
         const listings: UserSwapListing[] = res.data?.data?.user?.listings ?? []
         setExistingListings(listings)
 
+        // Validate stored pending listing ID — discard if the listing is already
+        // active or doesn't need a document (was created before the fix)
+        const storedId = localStorage.getItem('ts_pending_listing_id')
+        if (storedId) {
+          const storedListing = listings.find((l) => l.id === storedId)
+          if (
+            !storedListing ||
+            storedListing.status === 'ACTIVE' ||
+            storedListing.verificationStatus === 'NOT_REQUIRED' ||
+            storedListing.verificationStatus === 'APPROVED'
+          ) {
+            localStorage.removeItem('ts_pending_listing_id')
+            setCreatedListingId(null)
+          }
+        }
+
         if (listings.length > 0) {
           // Determine mode from most recent non-closed listing, fallback to any
           const recent =
