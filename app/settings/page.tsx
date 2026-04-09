@@ -266,7 +266,7 @@ export default function SettingsPage() {
                   const compressed = await compressImage(file)
                   const form = new FormData()
                   form.append('photo', compressed, 'photo.jpg')
-                  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me/profile-photo`, {
+                  const res = await fetch(`${(process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '')}/users/me/profile-photo`, {
                         method: 'POST',
                         headers: { Authorization: `Bearer ${token}` },
                         body: form,
