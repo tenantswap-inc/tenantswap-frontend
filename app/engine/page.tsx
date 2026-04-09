@@ -311,9 +311,15 @@ const Engine: React.FC = () => {
   const currentAreas = getSwapAreasForCity(currentState, currentCity)
   const vacancyAreas = getSwapAreasForCity(vacancyState, vacancyCity)
 
-  const maxStep = listingMode === 'SEEKING' ? 2 : 3
+  const alreadyVerified = (existingListings ?? []).some(
+    (l) => l.listingType === 'SEEKING' && l.verificationStatus === 'APPROVED'
+  )
 
-  const seekerSteps = ['Looking For', 'Upload Document', 'Confirm']
+  const maxStep = listingMode === 'SEEKING' ? (alreadyVerified ? 1 : 2) : 3
+
+  const seekerSteps = alreadyVerified
+    ? ['Looking For', 'Confirm']
+    : ['Looking For', 'Upload Document', 'Confirm']
 
   useEffect(() => {
     if (!alertMsg) return
@@ -469,15 +475,22 @@ const Engine: React.FC = () => {
       setAlertMsg('')
       setStep(3)
     } else if (listingMode === 'SEEKING' && step === 1) {
-      // Document upload is required for ALL seeker categories
-      if (!verificationFile) {
-        setErrors({ verificationFile: 'Please upload a supporting document' })
-        setAlertMsg('Please upload your supporting document before continuing.')
-        return
+      if (alreadyVerified) {
+        // Already verified — skip document upload step
+        setErrors({})
+        setAlertMsg('')
+        setStep(2)
+      } else {
+        // Document upload is required
+        if (!verificationFile) {
+          setErrors({ verificationFile: 'Please upload a supporting document' })
+          setAlertMsg('Please upload your supporting document before continuing.')
+          return
+        }
+        setErrors({})
+        setAlertMsg('')
+        setStep(2)
       }
-      setErrors({})
-      setAlertMsg('')
-      setStep(2)
     }
   }
 
@@ -583,8 +596,8 @@ const Engine: React.FC = () => {
         })
       }
 
-      // Upload verification document for SEEKING listings
-      if (isSeeking && verificationFile && listingId) {
+      // Upload verification document for SEEKING listings (only if not already verified)
+      if (isSeeking && !alreadyVerified && verificationFile && listingId) {
         const formData = new FormData()
         formData.append('document', verificationFile)
         const uploadRes = await Client.postFormData(
