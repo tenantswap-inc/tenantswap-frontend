@@ -193,9 +193,10 @@ const Register: React.FC = () => {
 
       }
       if (response.status === 409) {
-        setAlertMsg(message);
-        return;
-
+        setShowOnboarding(false)
+        setErrors({ phone: message ?? 'This phone number is already registered.' })
+        setAlertMsg(message ?? 'This phone number is already registered.')
+        return
       }
       if (response.status === 400) {
         setAlertMsg(message);

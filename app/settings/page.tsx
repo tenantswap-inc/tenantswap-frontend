@@ -271,12 +271,13 @@ export default function SettingsPage() {
                         headers: { Authorization: `Bearer ${token}` },
                         body: form,
                   })
-                  const json = await res.json() as { profilePhotoUrl?: string; message?: string }
-                  if (res.ok && json.profilePhotoUrl) {
-                        setPhotoUrl(json.profilePhotoUrl)
+                  const json = await res.json() as { data?: { profilePhotoUrl?: string }; message?: string }
+                  const uploadedUrl = json.data?.profilePhotoUrl
+                  if (res.ok && uploadedUrl) {
+                        setPhotoUrl(uploadedUrl)
                         setSuccessMsg('Profile photo updated.')
                   } else {
-                        setAlertMsg(json.message ?? 'Upload failed. Please try again.')
+                        setAlertMsg('Upload failed. Please try again.')
                   }
             } catch {
                   setAlertMsg('Network error. Please try again.')
