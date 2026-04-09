@@ -1279,10 +1279,12 @@ const Dashboard: React.FC = () => {
                   <Search size={28} className="text-purple-200 mx-auto mb-2" />
                   <p className="text-sm font-poppins-bold text-slate-400">
                     {listing.verificationStatus === 'PENDING'
-                      ? 'Under review — matches will appear once approved.'
-                      : listing.verificationStatus === 'APPROVED'
+                      ? 'Your application is under review — matches will appear once approved.'
+                      : listing.verificationStatus === 'APPROVED' || listing.verificationStatus === 'NOT_REQUIRED'
                         ? "Active — we'll notify you when matches are found."
-                        : 'Complete verification to activate your listing.'}
+                        : listing.verificationStatus === 'REJECTED'
+                          ? 'Your application was not approved. Please contact support.'
+                          : "Active — we'll notify you when matches are found."}
                   </p>
                 </div>
               ) : listing.matches.length > 0 ? (
