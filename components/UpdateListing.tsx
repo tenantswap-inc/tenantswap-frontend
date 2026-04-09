@@ -137,6 +137,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
   const [desiredType, setDesiredType] = useState<PropertyType>(listing.desiredType as PropertyType)
   const [desiredState, setDesiredState] = useState<Location>((listing.desiredState as Location) || desiredLocation.state)
   const [desiredCity, setDesiredCity] = useState(listing.desiredCity || desiredLocation.city)
+  const [desiredArea, setDesiredArea] = useState(listing.desiredArea || '')
 
   const [maxBudget, setMaxBudget] = useState<number>(listing.maxBudget)
   const [budgetDisplay, setBudgetDisplay] = useState(listing.maxBudget.toLocaleString('en-NG'))
@@ -159,6 +160,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
   const [loading, setLoading] = useState(false)
 
   const desiredCities = getAllowedSwapCities(desiredState)
+  const desiredAreas = getSwapAreasForCity(desiredState, desiredCity)
   const currentCities = getAllowedSwapCities(currentState)
   const currentAreas = getSwapAreasForCity(currentState, currentCity)
 
@@ -227,7 +229,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
       desiredType,
       desiredState,
       desiredCity,
-      desiredArea: null,
+      desiredArea: desiredArea || null,
       maxBudget,
       timeline,
       currentRent,
@@ -388,6 +390,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
                     onChange={e => {
                       setDesiredState(e.target.value as Location)
                       setDesiredCity('')
+                      setDesiredArea('')
                     }}
                     className={fc('desiredState')}
                   >
@@ -403,6 +406,7 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
                     value={desiredCity}
                     onChange={e => {
                       setDesiredCity(e.target.value)
+                      setDesiredArea('')
                     }}
                     disabled={desiredState === 'No Option'}
                     className={fc('desiredCity')}
@@ -412,6 +416,20 @@ const UpdateEngine: React.FC<UpdateEngineProps> = ({ listing, setListing, succes
                   </select>
                   <Err field="desiredCity" />
                 </div>
+
+                {desiredAreas.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Desired Area</label>
+                    <select
+                      value={desiredArea}
+                      onChange={e => setDesiredArea(e.target.value)}
+                      className={fc('desiredCity')}
+                    >
+                      <option value="">Select area…</option>
+                      {desiredAreas.map(area => <option key={area} value={area}>{area}</option>)}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-poppins-medium text-slate-600 mb-2">Max Budget (₦ / Yearly)</label>

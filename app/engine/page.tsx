@@ -265,7 +265,7 @@ const Engine: React.FC = () => {
   const [desiredType, setDesiredType] = useState<PropertyType>('No Option')
   const [desiredState, setDesiredState] = useState<Location>('No Option')
   const [desiredCity, setDesiredCity] = useState('')
-  const [desiredArea] = useState('')
+  const [desiredArea, setDesiredArea] = useState('')
   const [maxBudget, setMaxBudget] = useState<number>(0)
   const [budgetDisplay, setBudgetDisplay] = useState('')
   const [timeline, setTimeline] = useState<Timeline>('No Option')
@@ -300,6 +300,7 @@ const Engine: React.FC = () => {
   const [existingListings, setExistingListings] = useState<UserSwapListing[] | null>(null)
 
   const desiredCities = getAllowedSwapCities(desiredState)
+  const desiredAreas = getSwapAreasForCity(desiredState, desiredCity)
   const currentCities = getAllowedSwapCities(currentState)
   const vacancyCities = getAllowedSwapCities(vacancyState)
   const currentAreas = getSwapAreasForCity(currentState, currentCity)
@@ -480,7 +481,7 @@ const Engine: React.FC = () => {
           desiredType,
           desiredState,
           desiredCity,
-          desiredArea: null,
+          desiredArea: desiredArea || null,
           maxBudget,
           timeline,
         }
@@ -489,7 +490,7 @@ const Engine: React.FC = () => {
           desiredType,
           desiredState,
           desiredCity,
-          desiredArea: null,
+          desiredArea: desiredArea || null,
           maxBudget,
           timeline,
           currentRent,
@@ -927,6 +928,7 @@ const Engine: React.FC = () => {
                       onChange={(e) => {
                         setDesiredState(e.target.value as Location)
                         setDesiredCity('')
+                        setDesiredArea('')
                       }}
                       className={fc('desiredState')}
                     >
@@ -948,7 +950,7 @@ const Engine: React.FC = () => {
                     </label>
                     <select
                       value={desiredCity}
-                      onChange={(e) => setDesiredCity(e.target.value)}
+                      onChange={(e) => { setDesiredCity(e.target.value); setDesiredArea('') }}
                       disabled={desiredState === 'No Option'}
                       className={fc('desiredCity')}
                     >
@@ -965,6 +967,24 @@ const Engine: React.FC = () => {
                     </select>
                     <Err field="desiredCity" />
                   </div>
+
+                  {desiredAreas.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-poppins-medium text-slate-600 mb-2">
+                        Desired Area
+                      </label>
+                      <select
+                        value={desiredArea}
+                        onChange={(e) => setDesiredArea(e.target.value)}
+                        className={fc('desiredCity')}
+                      >
+                        <option value="">Select area…</option>
+                        {desiredAreas.map((area) => (
+                          <option key={area} value={area}>{area}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-poppins-medium text-slate-600 mb-2">
