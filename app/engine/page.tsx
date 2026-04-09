@@ -564,7 +564,7 @@ const Engine: React.FC = () => {
           return
         }
 
-        listingId = response.data?.listing?.id as string | null
+        listingId = (response.data?.data?.listing?.id ?? response.data?.listing?.id) as string | null
         if (listingId) {
           setCreatedListingId(listingId)
           localStorage.setItem('ts_pending_listing_id', listingId)
