@@ -259,7 +259,10 @@ const Engine: React.FC = () => {
   const [verificationFile, setVerificationFile] = useState<File | null>(null)
 
   const [underReview, setUnderReview] = useState(false)
-  const [createdListingId, setCreatedListingId] = useState<string | null>(null)
+  const [createdListingId, setCreatedListingId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem('ts_pending_listing_id')
+  })
 
   // ── Step 1 fields ──────────────────────────────────────────────────────────
   const [desiredType, setDesiredType] = useState<PropertyType>('No Option')
@@ -546,7 +549,10 @@ const Engine: React.FC = () => {
         }
 
         listingId = response.data?.listing?.id as string | null
-        if (listingId) setCreatedListingId(listingId)
+        if (listingId) {
+          setCreatedListingId(listingId)
+          localStorage.setItem('ts_pending_listing_id', listingId)
+        }
 
         posthog.capture('listing_created', {
           listing_type: listingMode,
@@ -578,10 +584,12 @@ const Engine: React.FC = () => {
           setAlertMsg(uploadMsg)
           return
         }
+        localStorage.removeItem('ts_pending_listing_id')
         setUnderReview(true)
         return
       }
 
+      localStorage.removeItem('ts_pending_listing_id')
       router.push('/dashboard')
     } catch (e: unknown) {
       const msg =
