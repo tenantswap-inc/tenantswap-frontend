@@ -28,13 +28,16 @@ export default function ContactsPage() {
       const token = localStorage.getItem('JWT_TOKEN')
       if (!token) return
 
-      const [outRes, inRes, meRes] = await Promise.all([
+      const [outRes, inRes, meRes, billingRes] = await Promise.all([
         Client.get('/matching/interests/outgoing', {}, { Authorization: `Bearer ${token}` }),
         Client.get('/matching/interests/incoming', {}, { Authorization: `Bearer ${token}` }),
         Client.get('/users/me', {}, { Authorization: `Bearer ${token}` }),
+        Client.get('/billing/me', {}, { Authorization: `Bearer ${token}` }),
       ])
 
-      const premium = meRes?.data?.data?.user?.subscriptionStatus === 'ACTIVE'
+      const enforcementEnabled = billingRes?.data?.data?.enforcementEnabled ?? false
+      const isActive = meRes?.data?.data?.user?.subscriptionStatus === 'ACTIVE'
+      const premium = !enforcementEnabled || isActive
       setIsPremium(premium)
 
       const outgoing: UserSwapRequest[] = outRes?.data?.data?.requests ?? []
