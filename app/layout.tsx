@@ -1,4 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+
+export const viewport: Viewport = {
+  themeColor: "#059669",
+};
 import "./globals.css";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Providers } from "./provider";
@@ -67,7 +71,6 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "TenantSwap",
   },
-  themeColor: "#059669",
 };
 
 

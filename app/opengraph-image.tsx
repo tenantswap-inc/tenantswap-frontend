@@ -80,7 +80,6 @@ export default async function Image() {
               background: "rgba(255,255,255,0.15)",
               borderRadius: 100,
               padding: "8px 20px",
-              width: "fit-content",
             }}
           >
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />

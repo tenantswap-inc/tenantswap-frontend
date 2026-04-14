@@ -76,7 +76,6 @@ export default async function Image({ params }: { params: Promise<{ city: string
               background: "rgba(255,255,255,0.15)",
               borderRadius: 100,
               padding: "8px 20px",
-              width: "fit-content",
               color: "#fff",
               fontSize: 18,
               letterSpacing: 2,
