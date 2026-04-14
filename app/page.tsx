@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import GuestLayout from "@/app/GuestLayout";
 import { Landing } from "@/components/Landing";
-import { HeroUIProvider } from "@heroui/react";
 
 export const metadata: Metadata = {
   title: "TenantSwap — Swap Apartments in Nigeria, Zero Agent Fees",
@@ -111,11 +110,9 @@ export default function Home() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
-      <HeroUIProvider>
-        <GuestLayout>
-          <Landing />
-        </GuestLayout>
-      </HeroUIProvider>
+      <GuestLayout>
+        <Landing />
+      </GuestLayout>
     </>
   );
 }

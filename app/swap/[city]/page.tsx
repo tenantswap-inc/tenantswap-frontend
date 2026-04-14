@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import GuestLayout from "@/app/GuestLayout";
-import { HeroUIProvider } from "@heroui/react";
 
 const siteUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://tenantswap.africa").replace(/\/$/, "");
 
@@ -93,8 +92,7 @@ export default async function CitySwapPage({ params }: { params: Promise<{ city:
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <HeroUIProvider>
-        <GuestLayout>
+      <GuestLayout>
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
 
             {/* Hero */}
@@ -223,7 +221,6 @@ export default async function CitySwapPage({ params }: { params: Promise<{ city:
             </div>
           </div>
         </GuestLayout>
-      </HeroUIProvider>
     </>
   );
 }
