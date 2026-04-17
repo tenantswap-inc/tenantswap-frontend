@@ -52,11 +52,11 @@ const Onboarding: React.FC<OnboardingProps> = ({ currentUser, onComplete, isLoad
 
   const handleComplete = (skip = false) => {
     if (!currentUser) return;
-    // Store pending profile photo in sessionStorage for upload after first login
+    // Store pending profile photo in localStorage for upload after first login
     if (!skip && photoPreview && photoMime) {
       try {
-        sessionStorage.setItem('pending_profile_photo_data', photoPreview);
-        sessionStorage.setItem('pending_profile_photo_mime', photoMime);
+        localStorage.setItem('pending_profile_photo_data', photoPreview);
+        localStorage.setItem('pending_profile_photo_mime', photoMime);
       } catch { /* quota exceeded — skip */ }
     }
     const updatedUser: RegisteredUser = {

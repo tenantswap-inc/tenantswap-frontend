@@ -118,8 +118,8 @@ const Login: React.FC = () => {
         posthog.capture("user_logged_in", { method: "password" })
 
         // Upload pending profile photo from onboarding if present
-        const pendingPhotoData = sessionStorage.getItem('pending_profile_photo_data');
-        const pendingPhotoMime = sessionStorage.getItem('pending_profile_photo_mime');
+        const pendingPhotoData = localStorage.getItem('pending_profile_photo_data');
+        const pendingPhotoMime = localStorage.getItem('pending_profile_photo_mime');
         if (pendingPhotoData && pendingPhotoMime) {
           try {
             const byteString = atob(pendingPhotoData.split(',')[1]);
@@ -136,8 +136,8 @@ const Login: React.FC = () => {
               body: form,
             });
           } catch { /* non-critical — skip */ } finally {
-            sessionStorage.removeItem('pending_profile_photo_data');
-            sessionStorage.removeItem('pending_profile_photo_mime');
+            localStorage.removeItem('pending_profile_photo_data');
+            localStorage.removeItem('pending_profile_photo_mime');
           }
         }
 

@@ -259,13 +259,16 @@ const Engine: React.FC = () => {
   const [verificationFile, setVerificationFile] = useState<File | null>(null)
 
   const [underReview, setUnderReview] = useState(false)
-  const [createdListingId, setCreatedListingId] = useState<string | null>(null)
+  const [createdListingId, setCreatedListingId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem('ts_pending_listing_id')
+  })
 
   // ── Step 1 fields ──────────────────────────────────────────────────────────
   const [desiredType, setDesiredType] = useState<PropertyType>('No Option')
   const [desiredState, setDesiredState] = useState<Location>('No Option')
   const [desiredCity, setDesiredCity] = useState('')
-  const [desiredArea] = useState('')
+  const [desiredArea, setDesiredArea] = useState('')
   const [maxBudget, setMaxBudget] = useState<number>(0)
   const [budgetDisplay, setBudgetDisplay] = useState('')
   const [timeline, setTimeline] = useState<Timeline>('No Option')
@@ -297,17 +300,26 @@ const Engine: React.FC = () => {
   const [loading, setLoading] = useState(false)
 
   // ── Existing listings (to skip gate for return users) ──────────────────────
-  const [existingListings, setExistingListings] = useState<UserSwapListing[] | null>(null)
+  const [existingListings, setExistingListings] = useState<
+    UserSwapListing[] | null
+  >(null)
 
   const desiredCities = getAllowedSwapCities(desiredState)
+  const desiredAreas = getSwapAreasForCity(desiredState, desiredCity)
   const currentCities = getAllowedSwapCities(currentState)
   const vacancyCities = getAllowedSwapCities(vacancyState)
   const currentAreas = getSwapAreasForCity(currentState, currentCity)
   const vacancyAreas = getSwapAreasForCity(vacancyState, vacancyCity)
 
-  const maxStep = listingMode === 'SEEKING' ? 2 : 3
+  const alreadyVerified = (existingListings ?? []).some(
+    (l) => l.listingType === 'SEEKING' && l.verificationStatus === 'APPROVED'
+  )
 
-  const seekerSteps = ['Looking For', 'Upload Document', 'Confirm']
+  const maxStep = listingMode === 'SEEKING' ? (alreadyVerified ? 1 : 2) : 3
+
+  const seekerSteps = alreadyVerified
+    ? ['Looking For', 'Confirm']
+    : ['Looking For', 'Upload Document', 'Confirm']
 
   useEffect(() => {
     if (!alertMsg) return
@@ -322,32 +334,60 @@ const Engine: React.FC = () => {
   // Fetch existing listings once the token is definitively known
   // Wait for tokenReady so we never run with a null token that's just not loaded yet
   useEffect(() => {
-    if (!tokenReady) return  // token not determined yet — keep showing spinner
-    if (!token) { setExistingListings([]); return }  // not logged in
+    if (!tokenReady) return // token not determined yet — keep showing spinner
+    if (!token) {
+      setExistingListings([])
+      return
+    } // not logged in
 
     Client.get<{ data: { user: { listings: UserSwapListing[] } } }>(
-      '/users/me', {}, { Authorization: `Bearer ${token}` }
-    ).then((res) => {
-      const listings: UserSwapListing[] = res.data?.data?.user?.listings ?? []
-      setExistingListings(listings)
+      '/users/me',
+      {},
+      { Authorization: `Bearer ${token}` }
+    )
+      .then((res) => {
+        const listings: UserSwapListing[] = res.data?.data?.user?.listings ?? []
+        setExistingListings(listings)
 
-      if (listings.length > 0) {
-        // Determine mode from most recent non-closed listing, fallback to any
-        const recent = listings.find((l) => l.status !== 'CLOSED') ?? listings[0]
-        if (recent.listingType === 'SWAP') {
-          setListingMode('SWAP')
-        } else {
-          setListingMode('SEEKING')
-          // Pre-select seekerCategory from most recent SEEKING listing
-          const lastCat = listings
-            .filter((l) => l.listingType === 'SEEKING' && l.seekerCategory)
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
-            ?.seekerCategory ?? null
-          if (lastCat) setSeekerCategory(lastCat)
+        // Validate stored pending listing ID — discard if the listing is already
+        // active or doesn't need a document (was created before the fix)
+        const storedId = localStorage.getItem('ts_pending_listing_id')
+        if (storedId) {
+          const storedListing = listings.find((l) => l.id === storedId)
+          if (
+            !storedListing ||
+            storedListing.status === 'ACTIVE' ||
+            storedListing.verificationStatus === 'NOT_REQUIRED' ||
+            storedListing.verificationStatus === 'APPROVED'
+          ) {
+            localStorage.removeItem('ts_pending_listing_id')
+            setCreatedListingId(null)
+          }
         }
-      }
-    }).catch(() => setExistingListings([]))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
+        if (listings.length > 0) {
+          // Determine mode from most recent non-closed listing, fallback to any
+          const recent =
+            listings.find((l) => l.status !== 'CLOSED') ?? listings[0]
+          if (recent.listingType === 'SWAP') {
+            setListingMode('SWAP')
+          } else {
+            setListingMode('SEEKING')
+            // Pre-select seekerCategory from most recent SEEKING listing
+            const lastCat =
+              listings
+                .filter((l) => l.listingType === 'SEEKING' && l.seekerCategory)
+                .sort(
+                  (a, b) =>
+                    new Date(b.createdAt).getTime() -
+                    new Date(a.createdAt).getTime()
+                )[0]?.seekerCategory ?? null
+            if (lastCat) setSeekerCategory(lastCat)
+          }
+        }
+      })
+      .catch(() => setExistingListings([]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokenReady])
 
   const toggleFeature = (f: string) =>
@@ -435,15 +475,22 @@ const Engine: React.FC = () => {
       setAlertMsg('')
       setStep(3)
     } else if (listingMode === 'SEEKING' && step === 1) {
-      // Document upload is required for ALL seeker categories
-      if (!verificationFile) {
-        setErrors({ verificationFile: 'Please upload a supporting document' })
-        setAlertMsg('Please upload your supporting document before continuing.')
-        return
+      if (alreadyVerified) {
+        // Already verified — skip document upload step
+        setErrors({})
+        setAlertMsg('')
+        setStep(2)
+      } else {
+        // Document upload is required
+        if (!verificationFile) {
+          setErrors({ verificationFile: 'Please upload a supporting document' })
+          setAlertMsg('Please upload your supporting document before continuing.')
+          return
+        }
+        setErrors({})
+        setAlertMsg('')
+        setStep(2)
       }
-      setErrors({})
-      setAlertMsg('')
-      setStep(2)
     }
   }
 
@@ -480,7 +527,7 @@ const Engine: React.FC = () => {
           desiredType,
           desiredState,
           desiredCity,
-          desiredArea: null,
+          desiredArea: desiredArea || null,
           maxBudget,
           timeline,
         }
@@ -489,7 +536,7 @@ const Engine: React.FC = () => {
           desiredType,
           desiredState,
           desiredCity,
-          desiredArea: null,
+          desiredArea: desiredArea || null,
           maxBudget,
           timeline,
           currentRent,
@@ -530,8 +577,11 @@ const Engine: React.FC = () => {
           return
         }
 
-        listingId = response.data?.listing?.id as string | null
-        if (listingId) setCreatedListingId(listingId)
+        listingId = (response.data?.data?.listing?.id ?? response.data?.listing?.id) as string | null
+        if (listingId) {
+          setCreatedListingId(listingId)
+          localStorage.setItem('ts_pending_listing_id', listingId)
+        }
 
         posthog.capture('listing_created', {
           listing_type: listingMode,
@@ -540,12 +590,14 @@ const Engine: React.FC = () => {
           desired_type: desiredType,
           max_budget: maxBudget,
           timeline,
-          ...(listingMode === 'SEEKING' ? { seeker_category: seekerCategory } : {}),
+          ...(listingMode === 'SEEKING'
+            ? { seeker_category: seekerCategory }
+            : {}),
         })
       }
 
-      // Upload verification document for SEEKING listings
-      if (isSeeking && verificationFile && listingId) {
+      // Upload verification document for SEEKING listings (only if not already verified)
+      if (isSeeking && !alreadyVerified && verificationFile && listingId) {
         const formData = new FormData()
         formData.append('document', verificationFile)
         const uploadRes = await Client.postFormData(
@@ -561,13 +613,18 @@ const Engine: React.FC = () => {
           setAlertMsg(uploadMsg)
           return
         }
+        localStorage.removeItem('ts_pending_listing_id')
         setUnderReview(true)
         return
       }
 
+      localStorage.removeItem('ts_pending_listing_id')
       router.push('/dashboard')
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Unable to reach the server. Please check your connection.'
+      const msg =
+        e instanceof Error
+          ? e.message
+          : 'Unable to reach the server. Please check your connection.'
       console.error('Listing submit error:', e)
       posthog.captureException(e)
       setAlertMsg(msg)
@@ -656,9 +713,16 @@ const Engine: React.FC = () => {
             <div className="w-20 h-20 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-6">
               <Home size={36} className="text-amber-500" />
             </div>
-            <h2 className="text-2xl font-poppins-bold text-slate-900 mb-3">Listing Limit Reached</h2>
+            <h2 className="text-2xl font-poppins-bold text-slate-900 mb-3">
+              Listing Limit Reached
+            </h2>
             <p className="text-slate-500 font-poppins-regular mb-8">
-              You already have <span className="font-poppins-bold text-slate-700">2 listings</span> on TenantSwap. Please close an existing listing before creating a new one.
+              You already have{' '}
+              <span className="font-poppins-bold text-slate-700">
+                2 listings
+              </span>{' '}
+              on TenantSwap. Please close an existing listing before creating a
+              new one.
             </p>
             <button
               type="button"
@@ -726,7 +790,8 @@ const Engine: React.FC = () => {
                       Yes, I have an apartment
                     </p>
                     <p className="text-xs text-slate-500 font-poppins-regular mt-1">
-                      I want to swap my current apartment for one in another location
+                      I want to swap my current apartment for one in another
+                      location
                     </p>
                   </button>
 
@@ -927,6 +992,7 @@ const Engine: React.FC = () => {
                       onChange={(e) => {
                         setDesiredState(e.target.value as Location)
                         setDesiredCity('')
+                        setDesiredArea('')
                       }}
                       className={fc('desiredState')}
                     >
@@ -948,7 +1014,10 @@ const Engine: React.FC = () => {
                     </label>
                     <select
                       value={desiredCity}
-                      onChange={(e) => setDesiredCity(e.target.value)}
+                      onChange={(e) => {
+                        setDesiredCity(e.target.value)
+                        setDesiredArea('')
+                      }}
                       disabled={desiredState === 'No Option'}
                       className={fc('desiredCity')}
                     >
@@ -965,6 +1034,26 @@ const Engine: React.FC = () => {
                     </select>
                     <Err field="desiredCity" />
                   </div>
+
+                  {desiredAreas.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-poppins-medium text-slate-600 mb-2">
+                        Desired Area
+                      </label>
+                      <select
+                        value={desiredArea}
+                        onChange={(e) => setDesiredArea(e.target.value)}
+                        className={fc('desiredCity')}
+                      >
+                        <option value="">Select area…</option>
+                        {desiredAreas.map((area) => (
+                          <option key={area} value={area}>
+                            {area}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-poppins-medium text-slate-600 mb-2">
@@ -1591,7 +1680,7 @@ const Engine: React.FC = () => {
                       <p className="text-sm text-slate-400 font-poppins-regular">
                         {seekerCategory === 'NYSC'
                           ? 'Upload your NYSC call-up letter or state deployment letter.'
-                          : 'Upload any document that supports your housing request.'}
+                          : 'Upload a workplace verification document that supports your housing request.'}
                       </p>
                     </div>
                     <div className="rounded-full border p-2 shadow-xl shadow-black/20">
@@ -1695,17 +1784,25 @@ const Engine: React.FC = () => {
                     {SEEKER_CATEGORIES.find((c) => c.value === seekerCategory)
                       ?.label ?? seekerCategory}
                   </p>
-                  <p className="text-xs text-slate-500 font-poppins-regular mt-1">
-                    {verificationFile
-                      ? `Document: ${verificationFile.name}`
-                      : 'No document uploaded'}
-                  </p>
+                  {!alreadyVerified && (
+                    <p className="text-xs text-slate-500 font-poppins-regular mt-1">
+                      {verificationFile
+                        ? `Document: ${verificationFile.name}`
+                        : 'No document uploaded'}
+                    </p>
+                  )}
                 </div>
 
-                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800 font-poppins-regular">
-                  Your listing will be reviewed before it goes live. This
-                  usually takes less than 24 hours.
-                </div>
+                {alreadyVerified ? (
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 font-poppins-regular">
+                    You&apos;re already verified — your listing will go live immediately.
+                  </div>
+                ) : (
+                  <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800 font-poppins-regular">
+                    Your listing will be reviewed before it goes live. This
+                    usually takes less than 24 hours.
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

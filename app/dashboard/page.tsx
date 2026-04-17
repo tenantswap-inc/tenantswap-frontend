@@ -125,6 +125,7 @@ const Dashboard: React.FC = () => {
     { id: string; apartmentType: string; city: string; state: string }[]
   >([])
   const [caretakerListing, setCaretakerListing] = useState<{ id: string; label: string } | null>(null)
+  const [enforcementEnabled, setEnforcementEnabled] = useState(false)
   const resubmitFileRef = useRef<HTMLInputElement | null>(null)
   const previousIncomingOpenRequests = useRef(0)
   const requestAttentionTimeoutRef = useRef<ReturnType<
@@ -200,11 +201,14 @@ const Dashboard: React.FC = () => {
     } catch { /* ignore bad cache */ }
 
     try {
-      const response = await Client.get(
-        '/users/me',
-        {},
-        { Authorization: `Bearer ${token}` }
-      )
+      const [response, billingRes] = await Promise.all([
+        Client.get('/users/me', {}, { Authorization: `Bearer ${token}` }),
+        Client.get('/billing/me', {}, { Authorization: `Bearer ${token}` }),
+      ])
+
+      if (billingRes?.status === 200) {
+        setEnforcementEnabled(billingRes.data?.data?.enforcementEnabled ?? false)
+      }
 
       if (response.status === 200) {
         const user = response.data.data.user
@@ -768,7 +772,7 @@ const Dashboard: React.FC = () => {
 
   // Free plan: 2 contact unlocks lifetime. Premium: unlimited.
   const FREE_CONTACT_LIMIT = 2
-  const isPremium = currentUser.subscriptionStatus === 'ACTIVE'
+  const isPremium = !enforcementEnabled || currentUser.subscriptionStatus === 'ACTIVE'
   const rejectedListings = currentUser.listings.filter(
     (l) => l.listingType === 'SEEKING' && l.verificationStatus === 'REJECTED'
   )
@@ -842,7 +846,7 @@ const Dashboard: React.FC = () => {
         onApprove={handleApproveInterest}
         onDecline={handleDeclineInterest}
         processingInterestId={processingInterestId}
-        isPremium={currentUser?.subscriptionStatus === 'ACTIVE'}
+        isPremium={isPremium}
       />
       <ListingPreviewModal
         listing={previewListing}
@@ -1275,10 +1279,12 @@ const Dashboard: React.FC = () => {
                   <Search size={28} className="text-purple-200 mx-auto mb-2" />
                   <p className="text-sm font-poppins-bold text-slate-400">
                     {listing.verificationStatus === 'PENDING'
-                      ? 'Under review — matches will appear once approved.'
-                      : listing.verificationStatus === 'APPROVED'
+                      ? 'Your application is under review — matches will appear once approved.'
+                      : listing.verificationStatus === 'APPROVED' || listing.verificationStatus === 'NOT_REQUIRED'
                         ? "Active — we'll notify you when matches are found."
-                        : 'Complete verification to activate your listing.'}
+                        : listing.verificationStatus === 'REJECTED'
+                          ? 'Your application was not approved. Please contact support.'
+                          : "Active — we'll notify you when matches are found."}
                   </p>
                 </div>
               ) : listing.matches.length > 0 ? (

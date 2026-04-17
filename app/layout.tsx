@@ -1,4 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+
+export const viewport: Viewport = {
+  themeColor: "#059669",
+};
 import "./globals.css";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { Providers } from "./provider";
@@ -6,17 +10,60 @@ import PostHogProvider from "@/components/PostHogProvider";
 import { Analytics } from "@vercel/analytics/next";
 
 
-const url = process.env.API_URL as string;
+const siteUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://tenantswap.africa").replace(/\/$/, "");
 
 export const metadata: Metadata = {
-  description: "Zero Agent Fees for Nigerian Tenants",
-  title: { default: "TenantSwap Nigeria - Zero Agent Fees", template: "%s | My Site" },
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "TenantSwap — Swap Apartments in Nigeria, Zero Agent Fees",
+    template: "%s | TenantSwap Nigeria",
+  },
+  description:
+    "TenantSwap helps Nigerian tenants swap apartments directly — no agent, no agency fees. Find your next home in Lagos, Abuja, Port Harcourt and more.",
+  keywords: [
+    "apartment swap Nigeria",
+    "house swap Lagos",
+    "no agent fee apartment Nigeria",
+    "find apartment Lagos",
+    "tenantswap",
+    "swap house Abuja",
+    "affordable apartments Nigeria",
+    "rent apartment Nigeria",
+  ],
+  authors: [{ name: "TenantSwap", url: siteUrl }],
+  creator: "TenantSwap",
+  publisher: "TenantSwap",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-snippet": -1, "max-image-preview": "large" },
+  },
   alternates: {
-    canonical: `${url}`,
-    languages: {
-      "en-US": `${url}/en-US`,
-      "de-DE": `${url}/de-DE`,
-    },
+    canonical: siteUrl,
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_NG",
+    url: siteUrl,
+    siteName: "TenantSwap Nigeria",
+    title: "TenantSwap — Swap Apartments in Nigeria, Zero Agent Fees",
+    description:
+      "Find your next apartment or swap your current one — no agent, no fees. TenantSwap connects Nigerian tenants directly.",
+    images: [
+      {
+        url: `${siteUrl}/og-image.png`,
+        width: 1200,
+        height: 630,
+        alt: "TenantSwap — Zero Agent Fees",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TenantSwap — Swap Apartments in Nigeria, Zero Agent Fees",
+    description: "No agent, no fees. Swap apartments directly with other Nigerian tenants.",
+    images: [`${siteUrl}/og-image.png`],
+    creator: "@tenantswap",
   },
   manifest: "/manifest.json",
   appleWebApp: {
@@ -24,14 +71,6 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "TenantSwap",
   },
-  themeColor: "#059669",
-  // openGraph: {
-  //   title: "Tenant Swap",
-  //   description: "Zero Agent Fees for Nigerian Tenants",
-  //   url: `${url}`,
-  //   siteName: "Tenant Swap",
-  //   images: [{ url: `${url}` }],
-  // },
 };
 
 
