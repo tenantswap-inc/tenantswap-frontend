@@ -25,6 +25,21 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Automated JWT Token Injection
+apiClient.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    // Determine which token to use based on URL path
+    const isAdminPath = config.url?.startsWith("/admin/")
+    const tokenKey = isAdminPath ? "ADMIN_JWT_TOKEN" : "JWT_TOKEN"
+    const token = localStorage.getItem(tokenKey)
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+  }
+  return config
+})
+
 export const Client = {
   get: async <T = any>(
     url: string,
