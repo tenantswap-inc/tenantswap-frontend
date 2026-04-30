@@ -25,6 +25,19 @@ apiClient.interceptors.response.use(
   }
 );
 
+/** Extracts a human-readable error message from an Axios response.
+ *  Prefers field-level validation errors (data.data.errors[]) over the
+ *  generic "Invalid request payload" top-level message. */
+export function extractApiError(response: AxiosResponse, fallback = "Something went wrong."): string {
+  const body = response?.data;
+  if (!body) return fallback;
+  const errors: unknown = body?.data?.errors;
+  if (Array.isArray(errors) && errors.length > 0) {
+    return (errors as string[]).join(", ");
+  }
+  return typeof body?.message === "string" ? body.message : fallback;
+}
+
 export const Client = {
   get: async <T = any>(
     url: string,

@@ -9,7 +9,7 @@ import { Alert } from "@heroui/alert"
 import { X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Onboarding from "@/components/onboarding"
-import { Client } from "@/shared/utils/ApiClient"
+import { Client, extractApiError } from "@/shared/utils/ApiClient"
 import GoogleSignInButton from "@/components/GoogleSignInButton"
 import { Check } from "lucide-react"
 import Toasts from "@/components/Toasts"
@@ -209,10 +209,8 @@ const Register: React.FC = () => {
         return
       }
       if (response.status === 400) {
-        setAlertMsg(message);
-        console.log(response.data)
+        setAlertMsg(extractApiError(response, "Invalid request. Please check your details."));
         return;
-
       }
       if (response.status === 429) {
         setAlertMsg(message);
