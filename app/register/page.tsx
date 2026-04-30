@@ -169,7 +169,6 @@ const Register: React.FC = () => {
         canConnectLandlord: updatedUser.canConnectLandlord,
         hasLandlordContact: updatedUser.hasLandlordContact,
         allowIncomingCalls: updatedUser.allowIncomingCalls,
-        role: "USER",
         ...(updatedUser.workplaceName ? { workplaceName: updatedUser.workplaceName } : {}),
         ...(updatedUser.workplaceState ? { workplaceState: updatedUser.workplaceState } : {}),
         ...(updatedUser.workplaceCity ? { workplaceCity: updatedUser.workplaceCity } : {}),
