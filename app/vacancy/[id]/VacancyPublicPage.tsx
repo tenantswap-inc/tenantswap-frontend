@@ -45,12 +45,20 @@ export default function VacancyPublicPage({ vacancy, vacancyId }: Props) {
   }, [vacancyId]);
 
   useEffect(() => {
-    void fetch(`${apiBase}/vacancy/${vacancyId}/click`, { method: 'POST' }).catch(() => undefined);
+    void fetch(`${apiBase}/listings/vacancy/${vacancyId}/track`, { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ action: 'CLICK' }) 
+    }).catch(() => undefined);
   }, [vacancyId]);
 
   const handleShare = async () => {
     const shareUrl = window.location.href;
-    void fetch(`${apiBase}/vacancy/${vacancyId}/share`, { method: 'POST' }).catch(() => undefined);
+    void fetch(`${apiBase}/listings/vacancy/${vacancyId}/track`, { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ action: 'SHARE' }) 
+    }).catch(() => undefined);
     if (navigator.share && vacancy) {
       try {
         await navigator.share({

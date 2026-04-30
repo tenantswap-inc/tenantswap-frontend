@@ -25,6 +25,20 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Automated JWT Token Injection
+apiClient.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const isAdminPath = config.url?.startsWith("/admin/")
+    const tokenKey = isAdminPath ? "ADMIN_JWT_TOKEN" : "JWT_TOKEN"
+    const token = localStorage.getItem(tokenKey)
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+  }
+  return config
+})
+
 /** Extracts a human-readable error message from an Axios response.
  *  Prefers field-level validation errors (data.data.errors[]) over the
  *  generic "Invalid request payload" top-level message. */
@@ -84,4 +98,3 @@ export const Client = {
     });
   },
 };
-

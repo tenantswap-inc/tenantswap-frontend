@@ -10,7 +10,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tenantswap.africa';
 
 async function fetchVacancy(id: string) {
   try {
-    const res = await fetch(`${apiBase}/vacancy/${id}`, {
+    const res = await fetch(`${apiBase}/listings/vacancy/${id}`, {
       next: { revalidate: 60 },
     });
     if (!res.ok) return null;
